@@ -1,0 +1,25 @@
+# Past Lithuanian-language exams from the National Agency for Education (NŠA,
+# https://www.nsa.smsm.lt). Each entry pairs a paper with its official marking key.
+#   gintaras exams-fetch    -> downloads PDFs + extracts text into data/exams/raw/
+#   gintaras exams-convert  -> LLM turns paper+key into data/exams/<level>/<id>.json
+# Papers are downloaded locally and are not committed to git.
+nmpp8:
+  - {id: nmpp8-2018-skaitymas, year: 2018, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/7624_Skaitymas_ST2018_8kl.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/7659_2018_8_kl_Skaitymo_vertinimo_instrukcija.pdf}
+  - {id: nmpp8-2018-rasymas, year: 2018, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/7614_Rasymas_ST2018_8kl.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/7657_2018_8_kl_Rasymo_vertinimo_instrukcija.pdf}
+  - {id: nmpp8-2017-skaitymas, year: 2017, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6875_Skaitymas_NMPP2017_8kl.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6886_NMPP2017_8kl_skaitymo_vertinimo_instrukcija_g.pdf}
+  - {id: nmpp8-2017-rasymas, year: 2017, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6874_Rasymas_NMPP2017_8kl.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6900_NMPP2017_8kl_rasymo_vertinimo_instrukcija_g.pdf}
+  - {id: nmpp8-2016-skaitymas, year: 2016, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6085_Skaitymas_ST2016_8kl.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6147_ST2016_8_kl_skaitymo_testo_vertinimo_instrukcija.pdf}
+  - {id: nmpp8-2016-rasymas, year: 2016, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6134_Rasymas_ST2016_8kl.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6149_2016ST_8kl_rasymo_testo_vertinimo_instrukcija.pdf}
+  - {id: nmpp8-2015-skaitymas, year: 2015, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6653_Skaitymas_ST2015_8kl_spaudai.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/6643_2015_standartizuoto_skaitymo_testo_8_klasei_vertinimo_instrukcija.pdf}
+  - {id: nmpp8-2014-skaitymas, year: 2014, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/4570_8kl_SKAITYMAS_2014.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/11/4562_8_kl_Vertinimo_instrukcija_Skaitymas_2014.pdf}
+pupp10:
+  - {id: pupp10-2019-testas, year: 2019, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/04/8014_2019_LKL_PUPP_Test_PG_3.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/04/8130_2019_LKL_PUPP_PG_testas-vert_instrukcija_2.pdf}
+  - {id: pupp10-2018-testas, year: 2018, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/05/7461_2018_LKL_PUPP_Test_PG.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/05/7847_2018_LKL_PUPP_testas-vert_instrukcija1.pdf}
+  - {id: pupp10-2017-testas, year: 2017, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/05/6951_LIETUVIU_KALBA_Testai_2017_2.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/05/7369_2017_Lt_G_PUPP_testas-vert_instrukcija.pdf}
+  - {id: pupp10-2016-testas, year: 2016, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/05/6095_LIETUVIU_KALBA_Testai_2016.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/05/6473_2016_Lt_G_PUPP_testas-vert_instrukcija.pdf}
+  - {id: pupp10-2012-testas, year: 2012, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/05/2634_LIETUVIU_KALBA_Testai_2012.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2021/05/5156_2012_Lt_G_PUPP.Testo-vert_instrukcija.pdf}
+vbe12:
+  - {id: vbe12-2024, year: 2024, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2024/06/2024_LKL_VBE_PG-WEB.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2024/07/2024_LKL_VBE.pdf}
+  - {id: vbe12-2023, year: 2023, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2023/06/2023_LKL_VBE_PG-web.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2022/11/instrukcija_LKL_VBE_2023.pdf}
+  - {id: vbe12-2025-a, year: 2025, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2025/06/2025_LKL_VBE_PG-A.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2025/01/LKL_VBEI_vertinimo_instrukcija_2025.pdf}
+  - {id: vbe12-2025-b, year: 2025, paper: https://www.nsa.smsm.lt/old/wp-content/uploads/2025/06/2025_LKL_VBE_PG-B.pdf, key: https://www.nsa.smsm.lt/old/wp-content/uploads/2025/01/LKL_VBEI_vertinimo_instrukcija_2025.pdf}

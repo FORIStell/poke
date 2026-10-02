@@ -148,7 +148,7 @@ def to_prompt_completion(messages: list[dict], system: str) -> dict:
 
 def sft_rows(cfg: Config) -> list[dict]:
     rows = []
-    for name in ("instructions.jsonl", "synth_sft.jsonl", "loop_sft.jsonl"):
+    for name in ("instructions.jsonl", "selfsup_sft.jsonl", "synth_sft.jsonl", "loop_sft.jsonl"):
         path = cfg.data_path(name)
         if path.exists():
             n0 = len(rows)

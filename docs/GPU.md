@@ -1,0 +1,55 @@
+# Renting a GPU for Gintaras
+
+You need two GPUs: one to serve the teacher and judge, and one to train Gintaras.
+The cheapest route is a rented cloud GPU machine billed by the hour.
+
+## What to rent
+
+| Option | GPUs | Approx. price | Notes |
+|---|---|---|---|
+| **Recommended** | 2× A100 80GB | ~$2.5–3.5 / h | Enough for the 9B student plus the Qwen3-30B teacher and judge |
+| Faster | 2× H100 80GB | ~$4–6 / h | About 2× faster |
+| Budget | 2× RTX 4090 / L40S 48GB | ~$1–1.5 / h | Lower `max_seq_len` to 2048. The teacher (about 30 GB) fits on one card |
+
+Disk: **300 GB** or more (model checkpoints and data). Use any of these providers:
+- **RunPod**: runpod.io → *Pods* → *Deploy* → pick "2× A100 80GB" → template **RunPod PyTorch 2.x** → set container disk to 300 GB.
+- **Vast.ai**: vast.ai → *Search* → filter for 2 GPUs, A100 80GB, disk ≥ 300 GB → template **PyTorch**.
+- **Lambda**: lambdalabs.com → *Instances* → "2× A100 (80 GB SXM4)".
+
+## Start training (one command)
+
+Open the machine's web terminal (or SSH in), then run:
+
+```bash
+git clone https://github.com/FORIStell/poke.git && cd poke
+git checkout claude/inspiring-goldberg-4d0m46   # until the PR is merged
+tmux new -s gintaras                            # keeps running if you close the browser
+bash scripts/gpu_bootstrap.sh
+```
+
+The script installs everything and starts the teacher model on GPU 0. Then it runs these steps:
+1. Downloads the past NMPP 8, PUPP 10 and VBE exams and converts them into the exam format.
+2. Prepares the Lithuanian data.
+3. Generates teacher-free exercises and distills from the teacher.
+4. Pretrains, then runs SFT and DPO.
+5. Runs the **improvement loop**. After every training round the model sits the exam ladder. It only stops when VBE has been passed 3 times in a row with ≥ 8/10. This takes days.
+
+Re-running the script resumes where it stopped. Detach from tmux with `Ctrl-b d` and re-attach with `tmux attach -t gintaras`.
+
+## Watch progress
+
+```bash
+python -m gintaras report -c configs/gintaras-9b-2gpu.yaml       # writes runs/gintaras-9b-2gpu/progress.png
+python -m gintaras serve  -c configs/gintaras-9b-2gpu.yaml --host 0.0.0.0 --port 8080
+```
+
+To open the front page, expose port 8080 in the provider's dashboard. On RunPod this is under *Edit pod → Expose HTTP ports*.
+
+## Letting Claude drive the GPU machine
+
+Install Claude Code on the machine (`npm i -g @anthropic-ai/claude-code`) and run `claude` in the `poke` folder. Claude then works directly on the GPU box.
+
+## Cost control
+
+- **Stop the machine when you are not training.** The disk is kept on RunPod and Vast "stopped" pods, so the run resumes later.
+- A full run to VBE level probably takes several days. On 2× A100 at ~$3/h that is roughly $150–400.

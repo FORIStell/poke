@@ -116,6 +116,9 @@ class LoopConfig:
     target_score: float = 9.0
     patience: int = 2
     sft_on_teacher_wins: bool = True
+    # After every round, sit the exam ladder; the loop then only stops when
+    # the top level (VBE) has been passed `exam.streak` times in a row.
+    exam_ladder: bool = True
 
 
 @dataclass
@@ -126,6 +129,20 @@ class EvalConfig:
     num_diacritics: int = 200
     num_ppl_docs: int = 200
     batch_size: int = 8
+
+
+@dataclass
+class ExamConfig:
+    """The exam ladder: the model must pass `streak` exams in a row (different
+    years) with at least `pass_grade` on a 10-point scale before moving up."""
+
+    exams_dir: str = "data/exams"
+    levels: list[str] = field(default_factory=lambda: ["nmpp8", "pupp10", "vbe12"])
+    pass_grade: float = 8.0
+    streak: int = 3
+    strength: str = "max"
+    max_new_tokens: int = 1024
+    essay_max_new_tokens: int = 2048
 
 
 @dataclass
@@ -148,6 +165,7 @@ class Config:
     dpo: TrainStageConfig = field(default_factory=lambda: TrainStageConfig(learning_rate=5e-6, batch_size=2))
     loop: LoopConfig = field(default_factory=LoopConfig)
     eval: EvalConfig = field(default_factory=EvalConfig)
+    exam: ExamConfig = field(default_factory=ExamConfig)
 
     # ---- paths -----------------------------------------------------------------
     @property

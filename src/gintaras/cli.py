@@ -1,11 +1,16 @@
 """Command line interface.
 
     gintaras prepare  -c configs/gintaras-9b.yaml     # data: corpus, instructions, contexts
+    gintaras selfsup  -c ...                          # teacher-free exercises (diacritics, error fixing)
     gintaras synth    -c ...                          # multi-teacher distillation
     gintaras cpt|sft|dpo -c ...                       # training stages
     gintaras improve  -c ...                          # self-improvement loop
     gintaras eval     -c ... [--model PATH]
     gintaras all      -c ...                          # everything, in order
+    gintaras exams-fetch|exams-convert -c ...         # download + convert past NŠA exams
+    gintaras exam     -c ... [--model PATH]           # sit the exam ladder (NMPP 8 → PUPP 10 → VBE)
+    gintaras serve    -c ... [--port 8080]            # front page with chat
+    gintaras report   -c ...                          # progress chart PNG
     gintaras chat     -c ... [--model PATH]
     gintaras ask      -c ... --context FILE --question "..."
     gintaras essay    -c ... --topic "..."
@@ -61,6 +66,12 @@ def cmd_synth(cfg: Config, args) -> None:
     print(json.dumps(synthesize(cfg), indent=2))
 
 
+def cmd_selfsup(cfg: Config, args) -> None:
+    from gintaras.data.synth import synthesize_selfsup
+
+    print(json.dumps(synthesize_selfsup(cfg), indent=2))
+
+
 def cmd_cpt(cfg: Config, args) -> None:
     from gintaras.train import run_cpt
 
@@ -92,14 +103,47 @@ def cmd_eval(cfg: Config, args) -> None:
     print(json.dumps(evaluate(cfg, model, use_judge=not args.no_judge), indent=2, ensure_ascii=False))
 
 
+def cmd_exams_fetch(cfg: Config, args) -> None:
+    from gintaras.exams import fetch_exams
+
+    fetch_exams(cfg)
+
+
+def cmd_exams_convert(cfg: Config, args) -> None:
+    from gintaras.exams import convert_all
+
+    print(f"converted {convert_all(cfg)} exams")
+
+
+def cmd_exam(cfg: Config, args) -> None:
+    from gintaras.exams import run_ladder
+
+    state = run_ladder(cfg, args.model or _default_model(cfg), max_exams=args.exams)
+    print(json.dumps({k: v for k, v in state.items() if k != "history"} | {"last": state["history"][-args.exams:]},
+                     indent=2, ensure_ascii=False))
+
+
+def cmd_report(cfg: Config, args) -> None:
+    from gintaras.report import make_report
+
+    print(make_report(cfg))
+
+
+def cmd_serve(cfg: Config, args) -> None:
+    from gintaras.server import serve
+
+    serve(cfg, args.model or _default_model(cfg), host=args.host, port=args.port)
+
+
 def cmd_all(cfg: Config, args) -> None:
     from gintaras.data.prepare import prepare_all
-    from gintaras.data.synth import synthesize
+    from gintaras.data.synth import synthesize, synthesize_selfsup
     from gintaras.evaluate import evaluate
     from gintaras.loop import improve
     from gintaras.train import dpo_rows, run_cpt, run_dpo, run_sft
 
     prepare_all(cfg)
+    synthesize_selfsup(cfg)
     if cfg.teachers and cfg.judge:
         synthesize(cfg)
     else:
@@ -169,9 +213,9 @@ def cmd_essay(cfg: Config, args) -> None:
 
 
 COMMANDS = {
-    "prepare": cmd_prepare, "synth": cmd_synth, "cpt": cmd_cpt, "sft": cmd_sft, "dpo": cmd_dpo,
+    "prepare": cmd_prepare, "selfsup": cmd_selfsup, "synth": cmd_synth, "cpt": cmd_cpt, "sft": cmd_sft, "dpo": cmd_dpo,
     "improve": cmd_improve, "eval": cmd_eval, "all": cmd_all, "chat": cmd_chat, "ask": cmd_ask,
-    "essay": cmd_essay,
+    "essay": cmd_essay, "exams-fetch": cmd_exams_fetch, "exams-convert": cmd_exams_convert, "exam": cmd_exam, "serve": cmd_serve, "report": cmd_report,
 }
 
 
@@ -188,6 +232,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--question", help="ask: the question")
     p.add_argument("--topic", help="essay: topic")
     p.add_argument("--words", type=int, default=500, help="essay: target length in words")
+    p.add_argument("--host", default="127.0.0.1", help="serve: bind address")
+    p.add_argument("--port", type=int, default=8080, help="serve: port")
+    p.add_argument("--exams", type=int, default=3, help="exam: how many exams to sit this time")
     args = p.parse_args(argv)
 
     setup_logging()

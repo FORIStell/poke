@@ -85,3 +85,57 @@ def generate_chat(
         new_tokens = out[:, enc["input_ids"].shape[1] :]
         outputs.extend(t.strip() for t in tok.batch_decode(new_tokens, skip_special_tokens=True))
     return outputs
+
+
+# ---------------------------------------------------------------------------
+# Strength levels (used by the chat UI and the exam ladder)
+# ---------------------------------------------------------------------------
+
+STRENGTHS = {
+    # fastest: one greedy answer, short
+    "low": {"samples": 1, "temperature": 0.0, "max_new_tokens": 256},
+    # balanced: one sampled answer, normal length
+    "medium": {"samples": 1, "temperature": 0.6, "max_new_tokens": 768},
+    # slowest/best: several candidates (greedy + sampled), keep the one the
+    # model itself is most confident in (highest mean token log-probability)
+    "max": {"samples": 4, "temperature": 0.7, "max_new_tokens": 1536},
+}
+
+
+@torch.no_grad()
+def mean_logprob(model, tok, conversation: list[Message], answer: str) -> float:
+    prompt = render_chat(tok, conversation)
+    device = next(model.parameters()).device
+    p_ids = tok(prompt, return_tensors="pt", add_special_tokens=False)["input_ids"]
+    a_ids = tok(answer, return_tensors="pt", add_special_tokens=False)["input_ids"]
+    if a_ids.shape[1] == 0:
+        return float("-inf")
+    ids = torch.cat([p_ids, a_ids], dim=1).to(device)
+    logits = model(input_ids=ids).logits[0, p_ids.shape[1] - 1 : -1].float()
+    logp = torch.log_softmax(logits, dim=-1).gather(1, a_ids[0].to(device).unsqueeze(1))
+    return logp.mean().item()
+
+
+def generate_with_strength(
+    model, tok, conversations: list[list[Message]], strength: str = "medium",
+    max_new_tokens: int | None = None, batch_size: int = 4,
+) -> list[str]:
+    if strength not in STRENGTHS:
+        raise ValueError(f"Unknown strength '{strength}', choose from {list(STRENGTHS)}")
+    s = STRENGTHS[strength]
+    mnt = max_new_tokens or s["max_new_tokens"]
+    if s["samples"] == 1:
+        return generate_chat(model, tok, conversations, max_new_tokens=mnt,
+                             temperature=s["temperature"], batch_size=batch_size)
+    candidates = [generate_chat(model, tok, conversations, max_new_tokens=mnt, temperature=0.0, batch_size=batch_size)]
+    for _ in range(s["samples"] - 1):
+        candidates.append(generate_chat(model, tok, conversations, max_new_tokens=mnt,
+                                        temperature=s["temperature"], batch_size=batch_size))
+    best = []
+    for i, conv in enumerate(conversations):
+        opts = [c[i] for c in candidates if c[i]]
+        if not opts:
+            best.append("")
+            continue
+        best.append(max(opts, key=lambda a: mean_logprob(model, tok, conv, a)))
+    return best

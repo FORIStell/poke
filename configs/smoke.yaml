@@ -58,3 +58,8 @@ eval:
   num_diacritics: 4
   num_ppl_docs: 4
   batch_size: 4
+
+exam:
+  strength: low
+  max_new_tokens: 16
+  essay_max_new_tokens: 16

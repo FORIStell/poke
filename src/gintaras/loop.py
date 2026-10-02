@@ -97,8 +97,18 @@ def improve(cfg: Config) -> dict:
     stale = 0
     system = f"{cfg.system_prompt}\n\n{STYLE_GUIDE}"
 
+    from gintaras.exams import load_exams, run_ladder
+
+    use_ladder = lc.exam_ladder and any(load_exams(cfg).values())
+    ladder_done = False
+    if use_ladder:
+        ladder_done = run_ladder(cfg, current, max_exams=cfg.exam.streak, judge=judge)["completed"]
+
     for r in range(1, lc.rounds + 1):
-        if best_score >= lc.target_score:
+        if ladder_done:
+            log.info("Exam ladder completed (VBE passed %d times in a row); stopping", cfg.exam.streak)
+            break
+        if not use_ladder and best_score >= lc.target_score:
             log.info("Target score %.2f reached; stopping", lc.target_score)
             break
         prompts = build_prompts(cfg, teachers, lc.prompts_per_round, seed=cfg.seed + 10_000 * r, id_prefix=f"r{r}")
@@ -146,6 +156,8 @@ def improve(cfg: Config) -> dict:
             if stale >= lc.patience:
                 log.info("No improvement for %d rounds; stopping", stale)
                 break
+        if use_ladder and accepted:
+            ladder_done = run_ladder(cfg, current, max_exams=cfg.exam.streak, judge=judge)["completed"]
         (cfg.out / "loop_history.json").write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
 
     (cfg.out / "loop_history.json").write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")

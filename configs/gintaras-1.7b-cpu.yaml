@@ -1,0 +1,72 @@
+# Gintaras 1.7B — slow training without a GPU (CPU only, ~16 GB RAM).
+# Small model + LoRA on real Lithuanian instruction data and teacher-free
+# exercises (diacritics restoration, error correction). No teacher servers.
+#   gintaras prepare -c configs/gintaras-1.7b-cpu.yaml
+#   gintaras selfsup -c configs/gintaras-1.7b-cpu.yaml
+#   gintaras sft     -c configs/gintaras-1.7b-cpu.yaml
+
+name: gintaras-1.7b-cpu
+output_dir: runs/gintaras-1.7b-cpu
+seed: 42
+
+model:
+  base: utter-project/EuroLLM-1.7B-Instruct
+  load_in_4bit: false
+  bf16: false
+  max_seq_len: 512
+  gradient_checkpointing: false
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    target_modules: all-linear
+
+data:
+  corpus:
+    - name: wikimedia/wikipedia
+      config: 20231101.lt
+      text_field: text
+      max_docs: 4000
+  instructions:
+    - name: neurotechnology/lithuanian-qa-v1
+      kind: qa
+      max_docs: 4000
+      eval_fraction: 0.02
+    - name: ArturG9/Lithuanian_Context_QA
+      kind: context_qa
+      eval_fraction: 0.3
+    - name: saillab/alpaca-lithuanian-cleaned
+      kind: alpaca
+      max_docs: 4000
+      eval_fraction: 0.01
+  min_chars: 200
+
+synth:
+  num_prompts: 3000
+  num_contexts: 4000
+
+cpt:
+  enabled: false
+
+sft:
+  epochs: 1
+  max_steps: 600
+  learning_rate: 2.0e-4
+  batch_size: 2
+  grad_accum: 4
+  logging_steps: 10
+  save_steps: 100
+
+dpo:
+  enabled: false
+
+loop:
+  rounds: 0
+
+eval:
+  max_new_tokens: 96
+  num_judge_prompts: 12
+  num_qa: 20
+  num_diacritics: 20
+  num_ppl_docs: 30
+  batch_size: 4

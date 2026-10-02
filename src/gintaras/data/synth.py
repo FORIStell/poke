@@ -209,3 +209,30 @@ def synthesize(cfg: Config) -> dict:
         stats["dpo"] += append_jsonl(dpo_path, dpo)
         log.info("Synth progress %d/%d: %s", start + n, total, stats)
     return stats
+
+
+SELF_SUPERVISED_TASKS = ("diacritics", "grammar_fix")
+
+
+def synthesize_selfsup(cfg: Config, n: int | None = None) -> dict:
+    """Teacher-free training material: exercises whose gold answer is real
+    Lithuanian text (restore diacritics, fix injected spelling/punctuation
+    errors). Works without any GPU or teacher server."""
+    contexts = load_contexts(cfg)
+    if not contexts:
+        raise ValueError("No contexts found; run `gintaras prepare` first")
+    rng = random.Random(cfg.seed + 7)
+    n = n if n is not None else min(cfg.synth.num_prompts, 2 * len(contexts))
+    rows = []
+    for i in range(n):
+        task = SELF_SUPERVISED_TASKS[i % len(SELF_SUPERVISED_TASKS)]
+        d = TASKS[task].builder(rng, rng.choice(contexts))
+        if d.user and d.reference and d.user != d.reference:
+            rows.append({"id": f"selfsup-{i}", "task": task, "teacher": "reference",
+                         "messages": [{"role": "user", "content": d.user},
+                                      {"role": "assistant", "content": d.reference}]})
+    path = cfg.data_path("selfsup_sft.jsonl")
+    path.unlink(missing_ok=True)
+    stats = {"selfsup": append_jsonl(path, rows)}
+    log.info("Self-supervised material: %s", stats)
+    return stats

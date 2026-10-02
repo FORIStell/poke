@@ -11,6 +11,39 @@ correct, natural Lithuanian.
 > progress, so you can push quality as far as your data and GPUs allow.
 > It needs real GPUs: training is **not** possible on a laptop CPU.
 
+![Gintaras front page](docs/img/front-desktop.png)
+
+## Goal: pass real Lithuanian exams
+
+After every training round the model sits **real past exams** from the National Agency for Education (NŠA).
+It climbs a ladder and moves up only after passing **3 exams from different years in a row with at least 8/10**:
+
+| Level | Exam | Papers available (with official marking keys) |
+|---|---|---|
+| 1 | NMPP, 8th grade (reading, writing) | 2014–2018 |
+| 2 | PUPP, 10th grade (test) | 2012, 2016–2019 |
+| 3 | VBE, 12th grade | 2023–2025 |
+
+Lithuania has no national exam in 9th grade, so the ladder goes 8 → 10 → 12.
+
+Grading follows the official keys. Multiple-choice answers and word forms are matched exactly. Spelling and punctuation tasks are graded by error count using the official error tables. Open answers and essays are scored by an LLM judge that is given the official marking key. A grade is 10 × the share of points, so 8/10 means at least 75 %. VBE is also shown on its 0–100 scale.
+Commands: `gintaras exams-fetch` downloads the papers, `gintaras exams-convert` converts them (needs the judge LLM), and `gintaras exam` sits the next exams.
+Exam papers are downloaded locally and are not committed.
+
+## Front page
+
+`gintaras serve -c <config>` starts a web page with:
+- a chat box,
+- three strength levels: **Greitas** (fast, greedy), **Vidutinis** (balanced) and **Stipriausias** (best: 4 candidates, keeps the one the model is most confident in),
+- live exam-ladder and training progress.
+
+`gintaras report -c <config>` writes a progress chart PNG.
+
+## Training without / with a GPU
+
+* **CPU only:** `configs/gintaras-1.7b-cpu.yaml` slowly trains the small EuroLLM-1.7B on real Lithuanian data plus teacher-free exercises (diacritics, error correction). It improves, but don't expect 8/10 on exams.
+* **Rented GPU:** see **[docs/GPU.md](docs/GPU.md)**. One command (`scripts/gpu_bootstrap.sh`) trains the 9B model and keeps going until the exam ladder is done.
+
 ## How it works
 
 ```
@@ -63,6 +96,9 @@ gintaras sft     -c $C      # supervised fine-tuning  → checkpoints/sft
 gintaras dpo     -c $C      # preference optimization → checkpoints/dpo
 gintaras improve -c $C      # self-improvement loop   → BEST_MODEL
 gintaras eval    -c $C      # metrics → runs/.../eval/<model>.json
+gintaras exam    -c $C      # sit the exam ladder
+gintaras serve   -c $C      # front page
+gintaras report  -c $C      # progress PNG
 ```
 
 Use it:
@@ -115,7 +151,9 @@ The loop keeps a new model only if its score improves, and stops at `loop.target
 ## Layout
 
 ```
-configs/            gintaras-9b.yaml (real run), smoke.yaml (CPU test)
+configs/            gintaras-9b.yaml (multi-GPU), gintaras-9b-2gpu.yaml (rented 2-GPU box),
+                    gintaras-1.7b-cpu.yaml (CPU only), smoke.yaml (CPU test)
+data/exams/         catalog.yaml: past NŠA exam papers + marking keys
 data/eval/          hand-written Lithuanian eval sets (never trained on)
 scripts/            serve_teachers.sh
 src/gintaras/
@@ -128,6 +166,9 @@ src/gintaras/
   train.py          CPT / SFT / DPO with (Q)LoRA + merging
   loop.py           iterative self-improvement
   evaluate.py       metrics
+  exams.py          exam ladder: fetch, convert, grade (official keys + judge)
+  server.py, web/   front page (chat with strength levels, progress)
+  report.py         progress chart PNG
   cli.py            `gintaras` command
 tests/              unit tests + end-to-end smoke test
 ```
