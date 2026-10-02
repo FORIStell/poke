@@ -25,7 +25,7 @@ import torch
 from gintaras.config import Config
 from gintaras.data.synth import is_refusal
 from gintaras.data.tasks import UNANSWERABLE, _sentences, context_qa_prompt
-from gintaras.generation import generate_chat, load_for_inference, with_system
+from gintaras.generation import load_for_inference, with_system
 from gintaras.lt import LT_LETTERS_ALL, answer_tokens, lt_score, strip_diacritics
 from gintaras.utils import read_jsonl, write_jsonl
 
@@ -143,58 +143,56 @@ def judge_prompt_items(cfg: Config) -> list[dict]:
 
 
 def evaluate(cfg: Config, model_path: str, name: str | None = None, use_judge: bool = True) -> dict:
+    from gintaras.fastgen import engine, generate
+
     name = name or Path(model_path).name
-    model, tok = load_for_inference(model_path, cfg.model.bf16)
     ev = cfg.eval
-    gen = lambda convs: generate_chat(  # noqa: E731
-        model, tok, [with_system(c, cfg.system_prompt) for c in convs],
-        max_new_tokens=ev.max_new_tokens, temperature=0.0, batch_size=ev.batch_size,
-    )
+    hf = load_for_inference(model_path, cfg.model.bf16) if engine(cfg) == "hf" else None
     results: dict = {"model": model_path}
     samples: list[dict] = []
 
-    ppl_path = cfg.data_path("corpus_eval.jsonl")
-    if ppl_path.exists():
-        docs = [r["text"] for r in read_jsonl(ppl_path)][: ev.num_ppl_docs]
-        if docs:
-            results["bpc"] = round(bits_per_char(model, tok, docs, cfg.model.max_seq_len), 4)
+    qa, dia, jp = qa_items(cfg), diacritic_items(cfg), judge_prompt_items(cfg)
+    convs = [with_system(x["messages"], cfg.system_prompt) for x in qa + dia + jp]
+    outs = [c[0][0] for c in generate(cfg, model_path, convs, ev.max_new_tokens, 0.0, 1, hf)]
+    qa_preds, dia_preds, jp_preds = outs[: len(qa)], outs[len(qa) : len(qa) + len(dia)], outs[len(qa) + len(dia) :]
 
-    qa = qa_items(cfg)
     if qa:
-        preds = gen([q["messages"] for q in qa])
-        answerable = [(p, q) for p, q in zip(preds, qa) if q["answer"] != UNANSWERABLE]
-        unanswerable = [(p, q) for p, q in zip(preds, qa) if q["answer"] == UNANSWERABLE]
+        answerable = [(p, q) for p, q in zip(qa_preds, qa) if q["answer"] != UNANSWERABLE]
+        unanswerable = [(p, q) for p, q in zip(qa_preds, qa) if q["answer"] == UNANSWERABLE]
         if answerable:
             results["qa_f1"] = round(sum(token_f1(p, q["answer"]) for p, q in answerable) / len(answerable), 4)
         if unanswerable:
             results["qa_unanswerable_acc"] = round(sum(is_refusal(p) for p, _ in unanswerable) / len(unanswerable), 4)
         samples += [{"kind": "qa", "prompt": q["messages"][-1]["content"], "reference": q["answer"], "output": p}
-                    for p, q in zip(preds, qa)]
+                    for p, q in zip(qa_preds, qa)]
 
-    dia = diacritic_items(cfg)
     if dia:
-        preds = gen([d["messages"] for d in dia])
         results["diacritics_word_acc"] = round(
-            sum(diacritics_word_accuracy(p, d["original"]) for p, d in zip(preds, dia)) / len(dia), 4
+            sum(diacritics_word_accuracy(p, d["original"]) for p, d in zip(dia_preds, dia)) / len(dia), 4
         )
-        samples += [{"kind": "diacritics", "reference": d["original"], "output": p} for p, d in zip(preds, dia)]
+        samples += [{"kind": "diacritics", "reference": d["original"], "output": p} for p, d in zip(dia_preds, dia)]
 
-    jp = judge_prompt_items(cfg)
     if jp:
-        preds = gen([j["messages"] for j in jp])
-        results["lt_consistency"] = round(sum(lt_score(p) >= 0.55 for p in preds) / len(preds), 4)
-        samples += [{"kind": "open", "prompt": j["messages"][-1]["content"], "output": p} for p, j in zip(preds, jp)]
+        results["lt_consistency"] = round(sum(lt_score(p) >= 0.55 for p in jp_preds) / len(jp_preds), 4)
+        samples += [{"kind": "open", "prompt": j["messages"][-1]["content"], "output": p} for p, j in zip(jp_preds, jp)]
         if use_judge and cfg.judge is not None:
             from gintaras.backends import make_backend
             from gintaras.judge import CRITERIA, judge_many
 
-            scores = judge_many(make_backend(cfg.judge), [(j["messages"], p, None) for p, j in zip(preds, jp)])
+            scores = judge_many(make_backend(cfg.judge), [(j["messages"], p, None) for p, j in zip(jp_preds, jp)])
             valid = [s for s in scores if s is not None]
             if valid:
                 for c in CRITERIA:
                     results[f"judge_{c}"] = round(sum(getattr(s, c) for s in valid) / len(valid), 3)
 
-    del model
+    ppl_path = cfg.data_path("corpus_eval.jsonl")
+    docs = [r["text"] for r in read_jsonl(ppl_path)][: ev.num_ppl_docs] if ppl_path.exists() else []
+    if docs:
+        model, tok = hf or load_for_inference(model_path, cfg.model.bf16)
+        results["bpc"] = round(bits_per_char(model, tok, docs, cfg.model.max_seq_len), 4)
+        del model
+    hf = None
+
     out_dir = cfg.out / "eval"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{name}.json").write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")

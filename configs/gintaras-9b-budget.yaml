@@ -1,0 +1,129 @@
+# Gintaras 9B, BUDGET settings for a rented 2-GPU machine (2x 48GB, e.g. RTX PRO 5000 / 4090 48GB / L40S).
+# Same pipeline, ~3-4x fewer GPU hours: vLLM for all generation, bf16 LoRA instead of 4-bit
+# (faster), short pretraining, smaller synthetic set and loop rounds, smaller evals.
+# Use this by default: CONFIG=configs/gintaras-9b-budget.yaml bash scripts/gpu_bootstrap.sh
+
+name: gintaras-9b-budget
+output_dir: runs/gintaras-9b-budget
+generation_engine: vllm
+seed: 42
+
+model:
+  # Apache-2.0, trained on all EU languages incl. Lithuanian.
+  base: utter-project/EuroLLM-9B-Instruct-2512
+  load_in_4bit: false        # bf16 LoRA: ~1.5-2x faster than QLoRA, fits in 48GB
+  bf16: true
+  max_seq_len: 2048
+  attn_implementation: sdpa
+  gradient_checkpointing: true
+  lora:
+    r: 32
+    alpha: 64
+    dropout: 0.05
+    target_modules: all-linear
+    train_embeddings: false
+
+data:
+  corpus:
+    - name: wikimedia/wikipedia
+      config: 20231101.lt
+      text_field: text
+    - name: HuggingFaceFW/fineweb-2
+      config: lit_Latn
+      text_field: text
+      max_docs: 150000
+  instructions:
+    - name: neurotechnology/lithuanian-qa-v1
+      kind: qa
+      eval_fraction: 0.02
+    - name: ArturG9/Lithuanian_Context_QA
+      kind: context_qa
+      eval_fraction: 0.3
+    - name: saillab/alpaca-lithuanian-cleaned
+      kind: alpaca
+      eval_fraction: 0.01
+  min_chars: 200
+  max_chars: 100000
+  min_lt_score: 0.55
+  dedup: true
+
+# One teacher/judge: Qwen3-30B-A3B (FP8) served by vLLM on GPU 0; the student trains on GPU 1.
+# Start it with scripts/gpu_bootstrap.sh (it does everything below automatically).
+teachers:
+  - name: qwen3-30b
+    backend: openai
+    base_url: http://localhost:8000/v1
+    model: Qwen/Qwen3-30B-A3B-Instruct-2507-FP8
+    temperature: 0.7
+    max_tokens: 3072
+    concurrency: 32
+
+judge:
+  name: judge-qwen3-30b
+  backend: openai
+  base_url: http://localhost:8000/v1
+  model: Qwen/Qwen3-30B-A3B-Instruct-2507-FP8
+  temperature: 0.0
+  max_tokens: 16000
+  concurrency: 32
+
+synth:
+  num_prompts: 10000
+  num_contexts: 20000
+  min_judge_score: 8.0
+  dpo_margin: 2.0
+  task_weights:
+    context_qa: 0.22
+    context_qa_unanswerable: 0.05
+    summarize: 0.08
+    rewrite: 0.05
+    diacritics: 0.04
+    grammar_fix: 0.06
+    translate_en_lt: 0.06
+    essay: 0.12
+    open_qa: 0.16
+    reasoning: 0.07
+    creative: 0.05
+    formal_writing: 0.04
+
+cpt:
+  enabled: true
+  max_steps: 800            # EuroLLM already knows Lithuanian; a short refresh is enough
+  learning_rate: 1.0e-4
+  batch_size: 4
+  grad_accum: 8
+  packing: true
+  save_steps: 400
+
+sft:
+  epochs: 2
+  learning_rate: 2.0e-4
+  batch_size: 4
+  grad_accum: 8
+  packing: true
+
+dpo:
+  epochs: 1
+  learning_rate: 5.0e-6
+  batch_size: 2
+  grad_accum: 16
+  beta: 0.1
+
+loop:
+  rounds: 20
+  prompts_per_round: 800
+  student_samples: 2
+  target_score: 9.0
+  patience: 2
+  sft_on_teacher_wins: true
+
+eval:
+  max_new_tokens: 512
+  num_judge_prompts: 24
+  num_qa: 100
+  num_diacritics: 50
+  num_ppl_docs: 50
+  batch_size: 16
+
+exam:
+  strength: max

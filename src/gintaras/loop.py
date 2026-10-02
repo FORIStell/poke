@@ -25,7 +25,7 @@ from gintaras.backends import make_backend
 from gintaras.config import Config
 from gintaras.data.synth import STYLE_GUIDE, Prompt, build_prompts, score_candidates, teacher_answers
 from gintaras.evaluate import evaluate, summary_score
-from gintaras.generation import generate_chat, load_for_inference, with_system
+from gintaras.generation import with_system
 from gintaras.judge import Score
 from gintaras.train import latest_checkpoint, run_dpo, run_sft, to_prompt_completion
 from gintaras.utils import append_jsonl
@@ -34,18 +34,12 @@ log = logging.getLogger(__name__)
 
 
 def student_samples(cfg: Config, model_path: str, prompts: list[Prompt]) -> list[list[str]]:
-    model, tok = load_for_inference(model_path, cfg.model.bf16)
+    from gintaras.fastgen import generate
+
     convs = [with_system(p.messages, cfg.system_prompt) for p in prompts]
-    per_prompt: list[list[str]] = [[] for _ in prompts]
-    for _ in range(cfg.loop.student_samples):
-        outs = generate_chat(model, tok, convs, max_new_tokens=cfg.eval.max_new_tokens,
-                             temperature=0.8, batch_size=cfg.eval.batch_size)
-        for i, o in enumerate(outs):
-            if o:
-                per_prompt[i].append(o)
-    del model
+    outs = generate(cfg, model_path, convs, cfg.eval.max_new_tokens, temperature=0.8, n=cfg.loop.student_samples)
     gc.collect()
-    return per_prompt
+    return [[t for t, _ in row if t] for row in outs]
 
 
 def round_data(

@@ -268,17 +268,21 @@ def to_grade(exam: dict, points: float) -> float:
     return float(max(1, min(10, round(10 * points / max_points(exam)))))
 
 
-def take_exam(cfg: Config, exam: dict, model, tok, judge=None) -> ExamResult:
+def take_exam(cfg: Config, exam: dict, model_path: str, hf=None, judge=None) -> ExamResult:
     from gintaras.backends import parse_json_object
-    from gintaras.generation import generate_with_strength
+    from gintaras.fastgen import generate_best
 
     questions = exam["questions"]
     convs = [[{"role": "system", "content": EXAM_SYSTEM}, {"role": "user", "content": question_prompt(exam, q)}]
              for q in questions]
-    answers = []
-    for q, conv in zip(questions, convs):
-        mnt = cfg.exam.essay_max_new_tokens if q["type"] == "essay" else cfg.exam.max_new_tokens
-        answers.append(generate_with_strength(model, tok, [conv], cfg.exam.strength, max_new_tokens=mnt)[0])
+    answers: list[str] = [""] * len(questions)
+    for is_essay in (False, True):  # one batched call per answer length
+        idx = [i for i, q in enumerate(questions) if (q["type"] == "essay") == is_essay]
+        if idx:
+            mnt = cfg.exam.essay_max_new_tokens if is_essay else cfg.exam.max_new_tokens
+            outs = generate_best(cfg, model_path, [convs[i] for i in idx], cfg.exam.strength, mnt, hf)
+            for i, a in zip(idx, outs):
+                answers[i] = a
 
     details, approximate = [], False
     judged = [i for i, q in enumerate(questions) if q["type"] in ("open", "essay")]
@@ -348,6 +352,7 @@ def next_exam(state: dict, exams: list[dict], model_path: str) -> dict | None:
 def run_ladder(cfg: Config, model_path: str, max_exams: int = 3, judge=None) -> dict:
     """Sit up to `max_exams` exams at the current level; advance a level after
     `streak` consecutive passes. State persists across training rounds."""
+    from gintaras.fastgen import engine
     from gintaras.generation import load_for_inference
 
     state = load_ladder(cfg)
@@ -356,7 +361,7 @@ def run_ladder(cfg: Config, model_path: str, max_exams: int = 3, judge=None) -> 
         from gintaras.backends import make_backend
 
         judge = make_backend(cfg.judge)
-    model, tok = load_for_inference(model_path, cfg.model.bf16)
+    hf = load_for_inference(model_path, cfg.model.bf16) if engine(cfg) == "hf" else None
     sat = 0
     while sat < max_exams and not state["completed"]:
         level = cfg.exam.levels[state["level_index"]]
@@ -364,7 +369,7 @@ def run_ladder(cfg: Config, model_path: str, max_exams: int = 3, judge=None) -> 
         if exam is None:
             log.warning("No exams available for level %s (put them in %s)", level, cfg.exam.exams_dir)
             break
-        res = take_exam(cfg, exam, model, tok, judge)
+        res = take_exam(cfg, exam, model_path, hf, judge)
         sat += 1
         state["streak"] = state["streak"] + 1 if res.passed else 0
         entry = {**res.summary(), "model": model_path, "streak_after": state["streak"]}
@@ -382,7 +387,7 @@ def run_ladder(cfg: Config, model_path: str, max_exams: int = 3, judge=None) -> 
             else:
                 state["completed"] = True
         save_ladder(cfg, state)
-    del model
+    hf = None
     state["current_level"] = cfg.exam.levels[state["level_index"]]
     return state
 

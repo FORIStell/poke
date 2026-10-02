@@ -150,6 +150,8 @@ class Config:
     name: str = "gintaras"
     output_dir: str = "runs/gintaras"
     seed: int = 42
+    # auto: vLLM when a GPU + vllm are available (10-20x faster), else Hugging Face generate
+    generation_engine: str = "auto"
     system_prompt: str = (
         "Tu esi Gintaras – išmanus, mandagus ir tikslus dirbtinio intelekto asistentas. "
         "Visada atsakyk taisyklinga lietuvių kalba, nebent vartotojas aiškiai paprašo kitos kalbos. "

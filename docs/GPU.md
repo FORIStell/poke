@@ -11,9 +11,9 @@ The cheapest route is a rented cloud GPU machine billed by the hour.
 | Faster | 2× H100 80GB | ~$4–6 / h | About 2× faster |
 | Budget | 2× RTX 4090 / L40S 48GB | ~$1–1.5 / h | Lower `max_seq_len` to 2048. The teacher (about 30 GB) fits on one card |
 
-Disk: **300 GB** or more (model checkpoints and data). Use any of these providers:
-- **RunPod**: runpod.io → *Pods* → *Deploy* → pick "2× A100 80GB" → template **RunPod PyTorch 2.x** → set container disk to 300 GB.
-- **Vast.ai**: vast.ai → *Search* → filter for 2 GPUs, A100 80GB, disk ≥ 300 GB → template **PyTorch**.
+Disk: **250 GB** is enough with the budget settings. Disk is billed by the hour too: 533 GB costs ~$0.50/h on Vast, 250 GB ~$0.23/h. Use any of these providers:
+- **RunPod**: runpod.io → *Pods* → *Deploy* → pick "2× A100 80GB" → template **RunPod PyTorch 2.x** → set container disk to 250 GB.
+- **Vast.ai**: vast.ai → *Search* → filter for 2 GPUs, A100 80GB, disk ≥ 250 GB → template **PyTorch**.
 - **Lambda**: lambdalabs.com → *Instances* → "2× A100 (80 GB SXM4)".
 
 ## Start training (one command)
@@ -24,8 +24,17 @@ Open the machine's web terminal (or SSH in), then run:
 git clone https://github.com/FORIStell/poke.git && cd poke
 git checkout claude/inspiring-goldberg-4d0m46   # until the PR is merged
 tmux new -s gintaras                            # keeps running if you close the browser
-bash scripts/gpu_bootstrap.sh
+STOP_WHEN_DONE=1 bash scripts/gpu_bootstrap.sh   # budget settings; stops the machine when finished
 ```
+
+By default it uses `configs/gintaras-9b-budget.yaml`, which takes about 3–4× fewer GPU hours than the full config:
+- vLLM for all generation (student answers, evaluation, exams), which is about 10–20× faster than plain `generate`;
+- bf16 LoRA instead of 4-bit QLoRA (faster on 48 GB cards);
+- a short pretraining refresh (EuroLLM already knows Lithuanian);
+- a smaller synthetic set and smaller rounds;
+- an automatic stop when the exam ladder is done.
+
+For the bigger run, use `CONFIG=configs/gintaras-9b-2gpu.yaml bash scripts/gpu_bootstrap.sh`.
 
 The script installs everything and starts the teacher model on GPU 0. Then it runs these steps:
 1. Downloads the past NMPP 8, PUPP 10 and VBE exams and converts them into the exam format.
@@ -52,4 +61,5 @@ Install Claude Code on the machine (`npm i -g @anthropic-ai/claude-code`) and ru
 ## Cost control
 
 - **Stop the machine when you are not training.** The disk is kept on RunPod and Vast "stopped" pods, so the run resumes later.
-- A full run to VBE level probably takes several days. On 2× A100 at ~$3/h that is roughly $150–400.
+- With the budget config on 2× 48 GB cards (~$1.2–1.5/h including disk), expect roughly 1.5–3 days, about **$45–110**. This is an estimate; it depends on how fast the exams get passed.
+- `STOP_WHEN_DONE=1` stops the instance automatically at the end. Billing for the GPU stops; only the small disk fee remains until you delete the instance.

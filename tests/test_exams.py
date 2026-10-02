@@ -70,3 +70,39 @@ def test_catalog_lists_all_levels():
     cat = load_catalog(load_config(ROOT / "configs/gintaras-1.7b-cpu.yaml"))
     assert set(cat) == {"nmpp8", "pupp10", "vbe12"}
     assert all(len({e["year"] for e in v}) >= 3 for v in cat.values())  # 3 different years per level
+
+
+def test_vllm_worker_protocol(tmp_path, monkeypatch):
+    """The vLLM subprocess reads requests and writes (text, mean logprob) rows."""
+    import json
+    import sys
+    import types
+    from argparse import Namespace
+
+    from gintaras import fastgen
+
+    class Out:
+        def __init__(self, text):
+            self.text, self.token_ids, self.cumulative_logprob = f" {text} ", [1, 2], -1.0
+
+    class LLM:
+        def __init__(self, **kw):
+            self.kw = kw
+
+        def chat(self, convs, params, use_tqdm=False):
+            return [types.SimpleNamespace(outputs=[Out(c[-1]["content"])] * params.n) for c in convs]
+
+    fake = types.SimpleNamespace(LLM=LLM, SamplingParams=lambda **kw: types.SimpleNamespace(**kw))
+    monkeypatch.setitem(sys.modules, "vllm", fake)
+    inp, out = tmp_path / "in.json", tmp_path / "out.json"
+    inp.write_text(json.dumps({"convs": [[{"role": "user", "content": "Labas"}]], "max_tokens": 8,
+                               "temperature": 0.7, "n": 2}))
+    fastgen._worker(Namespace(model="m", inp=str(inp), out=str(out), max_model_len=64, gpu_util=0.8))
+    assert json.loads(out.read_text()) == [[["Labas", -0.5], ["Labas", -0.5]]]
+
+
+def test_engine_falls_back_to_hf_without_gpu():
+    from gintaras.fastgen import engine
+
+    cfg = load_config(ROOT / "configs/smoke.yaml")
+    assert engine(cfg) == "hf"

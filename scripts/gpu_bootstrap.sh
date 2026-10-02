@@ -7,7 +7,7 @@
 #   bash scripts/gpu_bootstrap.sh            # inside a tmux session, it runs for days
 set -euo pipefail
 cd "$(dirname "$0")/.."
-C=${CONFIG:-configs/gintaras-9b-2gpu.yaml}
+C=${CONFIG:-configs/gintaras-9b-budget.yaml}
 mkdir -p runs/logs
 
 apt-get update -qq && apt-get install -y -qq poppler-utils tmux >/dev/null || true
@@ -36,3 +36,8 @@ have checkpoints/dpo/config.json    || run dpo || echo "no DPO pairs yet; the lo
 run improve           # loops: train -> exams -> train ... until the ladder is done
 run report
 echo "Done. Front page: python -m gintaras serve -c $C --host 0.0.0.0 --port 8080"
+
+# Stop paying as soon as training is finished (Vast.ai): STOP_WHEN_DONE=1 bash scripts/gpu_bootstrap.sh
+if [ "${STOP_WHEN_DONE:-0}" = "1" ] && [ -n "${CONTAINER_ID:-}" ]; then
+  pip install -q vastai && vastai stop instance "$CONTAINER_ID" --api-key "${CONTAINER_API_KEY:-$VAST_API_KEY}" || true
+fi
