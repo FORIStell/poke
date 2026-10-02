@@ -21,10 +21,29 @@ ROOT = Path(__file__).resolve().parent
 NEEDED = {"torch": "torch", "transformers": "transformers", "yaml": "pyyaml", "accelerate": "accelerate"}
 
 
+VENV = ROOT / ".venv"
+
+
+def venv_python() -> Path:
+    return VENV / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+
+
+def ensure_venv() -> None:
+    """Run inside a private environment next to this file, so a broken system
+    Python (e.g. "Cannot uninstall idna ... no RECORD file") can't interfere."""
+    if Path(sys.prefix).resolve() == VENV.resolve():
+        return
+    if not venv_python().exists():
+        print("Creating a private Python environment in", VENV)
+        subprocess.check_call([sys.executable, "-m", "venv", str(VENV)])
+    sys.exit(subprocess.call([str(venv_python()), str(Path(__file__).resolve()), *sys.argv[1:]]))
+
+
 def ensure_packages() -> None:
     missing = [pkg for mod, pkg in NEEDED.items() if importlib.util.find_spec(mod) is None]
     if missing:
-        print("Installing:", " ".join(missing))
+        print("Installing (first start only):", " ".join(missing))
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
         subprocess.check_call([sys.executable, "-m", "pip", "install", *missing])
 
 
@@ -46,6 +65,7 @@ def main() -> None:
     p.add_argument("--lan", action="store_true", help="allow other devices on your network to connect")
     args = p.parse_args()
 
+    ensure_venv()
     ensure_packages()
     sys.path.insert(0, str(ROOT / "src"))
     from gintaras.config import load_config
