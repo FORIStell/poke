@@ -4,6 +4,8 @@
     python run_gintaras.py                      # small model (EuroLLM-1.7B), works on CPU or a 4 GB GPU
     python run_gintaras.py --model PATH_OR_ID   # e.g. a trained checkpoint folder
     python run_gintaras.py --lan                # also reachable from your phone on the same Wi-Fi
+    python run_gintaras.py --exam               # sit the converted exams (needs gintaras-progress.tgz
+                                                # in this folder or in Downloads) and save results
 
 First start installs the needed packages and downloads the model (~3.5 GB).
 """
@@ -63,9 +65,13 @@ def main() -> None:
     p.add_argument("--model", default="utter-project/EuroLLM-1.7B-Instruct", help="model folder or Hugging Face id")
     p.add_argument("--port", type=int, default=8080)
     p.add_argument("--lan", action="store_true", help="allow other devices on your network to connect")
+    p.add_argument("--exam", action="store_true", help="sit the exams instead of starting the chat page")
+    p.add_argument("--level", default="nmpp8", help="exam level for --exam: nmpp8, pupp10 or vbe12")
     args = p.parse_args()
 
     ensure_venv()
+    if args.exam:
+        return run_exams(args)
     ensure_packages()
     sys.path.insert(0, str(ROOT / "src"))
     from gintaras.config import load_config
@@ -82,6 +88,53 @@ def main() -> None:
     print("The model loads on your first message (can take a minute). Stop with Ctrl+C.\n")
     threading.Timer(2, lambda: webbrowser.open(url)).start()
     serve(cfg, args.model, host=host, port=args.port)
+
+
+def find_progress_archive() -> Path | None:
+    for d in (ROOT, Path.home() / "Downloads", Path.home() / "Desktop"):
+        hits = sorted(d.glob("*gintaras-progress*.tgz"))
+        if hits:
+            return hits[-1]
+    return None
+
+
+def run_exams(args) -> None:
+    """Sit every converted exam of one level on this PC (CPU) and save the grades."""
+    import json
+    import tarfile
+
+    if importlib.util.find_spec("peft") is None:
+        print("Installing the full toolkit (first --exam run only)...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", str(ROOT)])
+    exams_dir = ROOT / "data" / "exams" / args.level
+    if not any(exams_dir.glob("*.json")):
+        archive = find_progress_archive()
+        if archive is None:
+            raise SystemExit("Put gintaras-progress.tgz in this folder (or Downloads) first.")
+        print("Unpacking exams from", archive)
+        with tarfile.open(archive) as t:
+            members = [m for m in t.getmembers() if m.name.startswith("data/exams/")]
+            t.extractall(ROOT, members=members, filter="data")
+    sys.path.insert(0, str(ROOT / "src"))
+    from gintaras.config import load_config
+    from gintaras.exams import load_exams, run_ladder
+    from gintaras.utils import setup_logging
+
+    setup_logging()
+    cfg = load_config(ROOT / "configs/gintaras-1.7b-cpu.yaml", {
+        "output_dir": str(ROOT / "runs" / "pc"), "generation_engine": "hf",
+        "exam.levels": [args.level], "exam.strength": "low", "exam.max_new_tokens": 200,
+    })
+    n = len(load_exams(cfg)[args.level])
+    print(f"\nSitting {n} {args.level} exams with {args.model}. This takes a while on a CPU (~15-40 min each).\n")
+    state = run_ladder(cfg, args.model, max_exams=n)
+    out = ROOT / "pc_exam_results.json"
+    out.write_text(json.dumps(state["history"], ensure_ascii=False, indent=2), encoding="utf-8")
+    print("\nResults:")
+    for h in state["history"]:
+        print(f"  {h['exam_id']:28s} {h['grade']:.0f}/10  ({h['percent']}%){'  approx.' if h['approximate'] else ''}")
+    print(f"\nSaved to {out} - send this file to Claude.")
+    input("Press Enter to close...")
 
 
 if __name__ == "__main__":

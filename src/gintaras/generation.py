@@ -24,12 +24,31 @@ def load_tokenizer(path: str):
 
 
 def load_for_inference(path: str, bf16: bool = True):
-    tok = load_tokenizer(path)
+    """Load a full model, or a small LoRA adapter folder (adapter_config.json):
+    adapters are applied on top of their base model and merged. Several
+    adapters can be stacked with "+": "base_or_adapter1+adapter2"."""
+    import json
+    from pathlib import Path
+
+    parts = path.split("+")
+    first = Path(parts[0])
+    adapters = parts[1:]
+    if (first / "adapter_config.json").exists():
+        base = json.loads((first / "adapter_config.json").read_text())["base_model_name_or_path"]
+        adapters = [parts[0], *adapters]
+    else:
+        base = parts[0]
+    tok = load_tokenizer(adapters[-1] if adapters and (Path(adapters[-1]) / "tokenizer_config.json").exists() else base)
     model = AutoModelForCausalLM.from_pretrained(
-        path,
+        base,
         dtype=pick_dtype(bf16),
         device_map="auto" if torch.cuda.is_available() else None,
     )
+    if adapters:
+        from peft import PeftModel
+
+        for a in adapters:
+            model = PeftModel.from_pretrained(model, a).merge_and_unload()
     model.eval()
     return model, tok
 
