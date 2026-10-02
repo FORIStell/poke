@@ -11,6 +11,11 @@ C=${CONFIG:-configs/gintaras-9b-budget.yaml}
 mkdir -p runs/logs
 
 apt-get update -qq && apt-get install -y -qq poppler-utils tmux >/dev/null || true
+# Own virtualenv (reusing the image's PyTorch) so pip never has to uninstall
+# Debian-managed packages such as PyJWT ("RECORD file not found").
+[ -d /workspace/venv ] || python3 -m venv --system-site-packages /workspace/venv
+source /workspace/venv/bin/activate
+pip install -q --upgrade pip
 pip install -q -e ".[gpu,dev,web]" vllm
 
 # Smaller cards (40 GB, e.g. A100 40GB): smaller training batches, tighter teacher memory.
