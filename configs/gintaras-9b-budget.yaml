@@ -100,7 +100,7 @@ sft:
   learning_rate: 2.0e-4
   batch_size: 4
   grad_accum: 8
-  packing: true
+  packing: false            # without FlashAttention, packing would let examples see each other
 
 dpo:
   epochs: 1
