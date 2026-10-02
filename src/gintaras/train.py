@@ -73,7 +73,7 @@ def common_args(cfg: Config, stage: TrainStageConfig, out_dir: Path) -> dict:
         save_steps=stage.save_steps,
         save_total_limit=2,
         bf16=cuda and cfg.model.bf16 and torch.cuda.is_bf16_supported(),
-        gradient_checkpointing=cuda and cfg.model.gradient_checkpointing,
+        gradient_checkpointing=cfg.model.gradient_checkpointing,
         max_length=cfg.model.max_seq_len,
         model_init_kwargs=model_init_kwargs(cfg),
         report_to="none",

@@ -14,7 +14,7 @@ model:
   load_in_4bit: false
   bf16: false
   max_seq_len: 512
-  gradient_checkpointing: false
+  gradient_checkpointing: true   # needed to fit in ~15 GB RAM
   lora:
     r: 16
     alpha: 32
@@ -52,8 +52,8 @@ sft:
   epochs: 1
   max_steps: 600
   learning_rate: 2.0e-4
-  batch_size: 2
-  grad_accum: 4
+  batch_size: 1
+  grad_accum: 8
   logging_steps: 10
   save_steps: 100
 
