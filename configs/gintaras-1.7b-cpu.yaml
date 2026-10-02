@@ -70,3 +70,10 @@ eval:
   num_diacritics: 20
   num_ppl_docs: 30
   batch_size: 4
+
+# On CPU there is no judge model, so open answers are graded approximately
+# (marked "≈"); real grading needs the GPU setup (docs/GPU.md).
+exam:
+  strength: medium
+  max_new_tokens: 200
+  essay_max_new_tokens: 600
