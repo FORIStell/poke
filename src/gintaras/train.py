@@ -73,6 +73,7 @@ def common_args(cfg: Config, stage: TrainStageConfig, out_dir: Path) -> dict:
         save_steps=stage.save_steps,
         save_total_limit=2,
         bf16=cuda and cfg.model.bf16 and torch.cuda.is_bf16_supported(),
+        fp16=cuda and cfg.model.bf16 and not torch.cuda.is_bf16_supported(),  # e.g. Kaggle T4
         gradient_checkpointing=cfg.model.gradient_checkpointing,
         max_length=cfg.model.max_seq_len,
         model_init_kwargs=model_init_kwargs(cfg),
@@ -109,10 +110,11 @@ def _finish(trainer, cfg: Config, base: str, name: str) -> Path:
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    out = merge_adapter(base, adapter_dir, cfg.ckpt_path(name), cfg.model.bf16)
+    if not cfg.model.merge_after_training:
+        return adapter_dir  # keep checkpoints: the next session resumes from them
     for ckpt in adapter_dir.glob("checkpoint-*"):
         shutil.rmtree(ckpt, ignore_errors=True)
-    return out
+    return merge_adapter(base, adapter_dir, cfg.ckpt_path(name), cfg.model.bf16)
 
 
 def _last_checkpoint(output_dir: str) -> str | None:
@@ -139,12 +141,41 @@ def _tokenizer(path: str):
 
 
 def latest_checkpoint(cfg: Config, *names: str) -> str:
-    """First existing merged checkpoint among `names`, else the base model."""
+    """First existing merged checkpoint (or, without merging, adapter) among
+    `names`, else the base model."""
     for name in names:
         p = cfg.ckpt_path(name)
         if (p / "config.json").exists():
             return str(p)
+        a = cfg.ckpt_path(f"{name}_adapter")
+        if not cfg.model.merge_after_training and (a / "adapter_config.json").exists():
+            return str(a)
     return cfg.model.base
+
+
+class TimeLimit:
+    """Trainer callback: save and stop once the stage has run for `hours`."""
+
+    def __new__(cls, hours: float):
+        import time
+
+        from transformers import TrainerCallback
+
+        class _CB(TrainerCallback):
+            start = time.time()
+
+            def on_step_end(self, args, state, control, **kw):
+                if time.time() - self.start > hours * 3600:
+                    log.info("Time limit of %.1f h reached at step %d; saving and stopping", hours, state.global_step)
+                    control.should_save = True
+                    control.should_training_stop = True
+                return control
+
+        return _CB()
+
+
+def _callbacks(stage: TrainStageConfig) -> list:
+    return [TimeLimit(stage.time_limit_hours)] if stage.time_limit_hours else []
 
 
 def to_prompt_completion(messages: list[dict], system: str) -> dict:
@@ -233,6 +264,7 @@ def run_cpt(cfg: Config) -> Path | None:
         processing_class=_tokenizer(base),
         peft_config=peft_config(cfg),
         quantization_config=quantization_config(cfg),
+        callbacks=_callbacks(cfg.cpt),
     )
     trainer.train(resume_from_checkpoint=_last_checkpoint(args.output_dir))
     return _finish(trainer, cfg, base, "cpt")
@@ -255,6 +287,7 @@ def run_sft(cfg: Config, base: str | None = None, rows: list[dict] | None = None
         processing_class=_tokenizer(base),
         peft_config=peft_config(cfg),
         quantization_config=quantization_config(cfg),
+        callbacks=_callbacks(cfg.sft if "dpo" not in name else cfg.dpo),
     )
     trainer.train(resume_from_checkpoint=_last_checkpoint(args.output_dir))
     return _finish(trainer, cfg, base, name)
@@ -278,6 +311,7 @@ def run_dpo(cfg: Config, base: str | None = None, rows: list[dict] | None = None
         processing_class=_tokenizer(base),
         peft_config=peft_config(cfg),
         quantization_config=quantization_config(cfg),
+        callbacks=_callbacks(cfg.sft if "dpo" not in name else cfg.dpo),
     )
     trainer.train(resume_from_checkpoint=_last_checkpoint(args.output_dir))
     return _finish(trainer, cfg, base, name)

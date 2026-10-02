@@ -52,7 +52,8 @@ class OpenAIBackend:
 
         try:
             resp = self.client.chat.completions.create(
-                model=self.cfg.model, messages=messages, temperature=temperature, max_tokens=max_tokens
+                model=self.cfg.model, messages=messages, temperature=temperature, max_tokens=max_tokens,
+                extra_body=self.cfg.extra_body,
             )
         except (openai.APIConnectionError, openai.APIStatusError) as e:
             log.warning("[%s] request failed: %s", self.name, e)

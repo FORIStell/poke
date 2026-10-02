@@ -39,16 +39,28 @@ def load_for_inference(path: str, bf16: bool = True):
     else:
         base = parts[0]
     tok = load_tokenizer(adapters[-1] if adapters and (Path(adapters[-1]) / "tokenizer_config.json").exists() else base)
+    import os
+
+    kw: dict = {}
+    four_bit = os.environ.get("GINTARAS_4BIT") == "1" and torch.cuda.is_available()
+    if four_bit:  # small GPUs (e.g. Kaggle T4 16 GB): keep the 9B model in 4-bit
+        from transformers import BitsAndBytesConfig
+
+        kw["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
+                                                       bnb_4bit_compute_dtype=pick_dtype(bf16))
     model = AutoModelForCausalLM.from_pretrained(
         base,
         dtype=pick_dtype(bf16),
         device_map="auto" if torch.cuda.is_available() else None,
+        **kw,
     )
     if adapters:
         from peft import PeftModel
 
         for a in adapters:
-            model = PeftModel.from_pretrained(model, a).merge_and_unload()
+            model = PeftModel.from_pretrained(model, a)
+            if not four_bit:
+                model = model.merge_and_unload()
     model.eval()
     return model, tok
 

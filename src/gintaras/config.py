@@ -33,6 +33,9 @@ class ModelConfig:
     max_seq_len: int = 4096
     attn_implementation: str | None = "sdpa"
     gradient_checkpointing: bool = True
+    # False: keep only the small LoRA adapter after each stage (no full-size merged copy);
+    # needed where disk is small (Kaggle /kaggle/working is 20 GB)
+    merge_after_training: bool = True
     lora: LoraConfig = field(default_factory=LoraConfig)
 
 
@@ -76,6 +79,8 @@ class EndpointConfig:
     max_tokens: int = 2048
     concurrency: int = 16
     timeout: float = 600.0
+    # extra request fields, e.g. {"chat_template_kwargs": {"enable_thinking": false}} for Qwen3 hybrid models
+    extra_body: dict | None = None
 
 
 @dataclass
@@ -106,6 +111,9 @@ class TrainStageConfig:
     packing: bool = False
     # DPO only.
     beta: float = 0.1
+    # Stop cleanly (checkpoint saved, resumable) after this many hours, e.g. for
+    # Kaggle's 12 h session limit. None = no limit.
+    time_limit_hours: float | None = None
 
 
 @dataclass
