@@ -414,7 +414,8 @@ Convert them into ONE JSON object with this schema:
      "reference": "<fully correct text>",           // fill_text, punctuation
      "error_table": [<points for 0,1,2,... errors>] // fill_text, punctuation, optional for forms
    }}]}}
-Rules: keep Lithuanian text exactly (fix only PDF line-break hyphenation); skip tasks that require \
+Rules: if the student must CHOOSE one of several tasks (e.g. essay topics), include only the \
+first option and use its points; keep Lithuanian text exactly (fix only PDF line-break hyphenation); skip tasks that require \
 drawing symbols on paper or cannot be done in plain text; omit fields that do not apply.
 Return ONLY the JSON.
 

@@ -45,6 +45,11 @@ run exams-fetch
 run exams-convert                                   # skips exams already converted
 have data/contexts.jsonl            || run prepare
 have data/selfsup_sft.jsonl         || run selfsup
+# Reuse the distilled data saved in the repo instead of paying the teacher again
+if ! have data/synth_sft.jsonl && ls data/distilled/synth_sft.*.jsonl.gz >/dev/null 2>&1; then
+  mkdir -p "$OUT/data" && zcat data/distilled/synth_sft.*.jsonl.gz > "$OUT/data/synth_sft.jsonl"
+  echo "restored distilled data from data/distilled/"
+fi
 have data/synth_sft.jsonl           || run synth
 # SKIP_CPT=1 skips the optional pretraining refresh (saves GPU hours on a tight budget)
 [ "${SKIP_CPT:-0}" = "1" ] || have checkpoints/cpt/config.json || run cpt
