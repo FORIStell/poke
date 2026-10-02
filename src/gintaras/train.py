@@ -115,6 +115,18 @@ def _finish(trainer, cfg: Config, base: str, name: str) -> Path:
     return out
 
 
+def _last_checkpoint(output_dir: str) -> str | None:
+    """Resume an interrupted stage from its newest saved checkpoint."""
+    from transformers.trainer_utils import get_last_checkpoint
+
+    if not Path(output_dir).is_dir():
+        return None
+    ckpt = get_last_checkpoint(output_dir)
+    if ckpt:
+        log.info("Resuming from %s", ckpt)
+    return ckpt
+
+
 def _tokenizer(path: str):
     from gintaras.generation import load_tokenizer
 
@@ -199,7 +211,7 @@ def run_cpt(cfg: Config) -> Path | None:
         peft_config=peft_config(cfg),
         quantization_config=quantization_config(cfg),
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=_last_checkpoint(args.output_dir))
     return _finish(trainer, cfg, base, "cpt")
 
 
@@ -221,7 +233,7 @@ def run_sft(cfg: Config, base: str | None = None, rows: list[dict] | None = None
         peft_config=peft_config(cfg),
         quantization_config=quantization_config(cfg),
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=_last_checkpoint(args.output_dir))
     return _finish(trainer, cfg, base, name)
 
 
@@ -244,5 +256,5 @@ def run_dpo(cfg: Config, base: str | None = None, rows: list[dict] | None = None
         peft_config=peft_config(cfg),
         quantization_config=quantization_config(cfg),
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=_last_checkpoint(args.output_dir))
     return _finish(trainer, cfg, base, name)

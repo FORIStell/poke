@@ -77,6 +77,19 @@ def _remove_checkpoint(cfg: Config, path: str) -> None:
         shutil.rmtree(p, ignore_errors=True)
 
 
+def _resume_state(cfg: Config, hist_path) -> tuple[list[dict], str, float] | None:
+    """Continue an interrupted loop (e.g. the rented machine was stopped):
+    keep the history and start from the best accepted model so far."""
+    if not hist_path.exists():
+        return None
+    history = json.loads(hist_path.read_text(encoding="utf-8"))
+    accepted = [h for h in history if h.get("accepted", h["round"] == 0) and Path(h["model"], "config.json").exists()]
+    if not history or not accepted:
+        return None
+    best = accepted[-1]
+    return history, best["model"], summary_score(best["eval"])
+
+
 def improve(cfg: Config) -> dict:
     if not cfg.teachers or cfg.judge is None:
         raise ValueError("The improvement loop needs `teachers` and a `judge` in the config")
@@ -84,10 +97,17 @@ def improve(cfg: Config) -> dict:
     judge = make_backend(cfg.judge)
     lc = cfg.loop
 
-    current = latest_checkpoint(cfg, "dpo", "sft", "cpt")
-    history: list[dict] = [{"round": 0, "model": current, "eval": evaluate(cfg, current, name="loop_r0")}]
-    best_score = summary_score(history[0]["eval"])
-    log.info("Round 0 (%s): score %.3f", current, best_score)
+    hist_path = cfg.out / "loop_history.json"
+    resumed = _resume_state(cfg, hist_path)
+    if resumed:
+        history, current, best_score = resumed
+        log.info("Resuming the loop after round %d from %s (score %.3f)", history[-1]["round"], current, best_score)
+    else:
+        current = latest_checkpoint(cfg, "dpo", "sft", "cpt")
+        history = [{"round": 0, "model": current, "eval": evaluate(cfg, current, name="loop_r0"), "accepted": True}]
+        best_score = summary_score(history[0]["eval"])
+        log.info("Round 0 (%s): score %.3f", current, best_score)
+    first_round = history[-1]["round"] + 1
     stale = 0
     system = f"{cfg.system_prompt}\n\n{STYLE_GUIDE}"
 
@@ -98,7 +118,7 @@ def improve(cfg: Config) -> dict:
     if use_ladder:
         ladder_done = run_ladder(cfg, current, max_exams=cfg.exam.streak, judge=judge)["completed"]
 
-    for r in range(1, lc.rounds + 1):
+    for r in range(first_round, first_round + lc.rounds):
         if ladder_done:
             log.info("Exam ladder completed (VBE passed %d times in a row); stopping", cfg.exam.streak)
             break
@@ -143,6 +163,7 @@ def improve(cfg: Config) -> dict:
             log.info("Round %d improved %.3f -> %.3f", r, best_score, score)
             _remove_checkpoint(cfg, current)
             current, best_score, stale = new, score, 0
+            (cfg.out / "BEST_MODEL").write_text(current + "\n", encoding="utf-8")
         else:
             log.info("Round %d did not improve (%.3f <= %.3f); discarding", r, score, best_score)
             _remove_checkpoint(cfg, new)

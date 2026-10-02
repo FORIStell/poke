@@ -93,7 +93,7 @@ cpt:
   batch_size: 4
   grad_accum: 8
   packing: true
-  save_steps: 400
+  save_steps: 100          # frequent saves: an interrupted run loses at most ~1 h
 
 sft:
   epochs: 2
@@ -101,6 +101,7 @@ sft:
   batch_size: 4
   grad_accum: 8
   packing: false            # without FlashAttention, packing would let examples see each other
+  save_steps: 200
 
 dpo:
   epochs: 1

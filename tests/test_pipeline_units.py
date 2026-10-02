@@ -150,3 +150,23 @@ def test_eval_files_are_valid():
     prompts = list(read_jsonl(ROOT / "data/eval/judge_prompts.jsonl"))
     assert len({p["id"] for p in prompts}) == len(prompts)
     assert json.dumps(prompts, ensure_ascii=False)
+
+
+def test_loop_resumes_from_best_accepted_round(cfg, tmp_path):
+    import json
+
+    from gintaras.loop import _resume_state
+
+    good = tmp_path / "loop_r2"
+    good.mkdir()
+    (good / "config.json").write_text("{}")
+    hist = [
+        {"round": 0, "model": str(tmp_path / "gone"), "eval": {"qa_f1": 0.1}},
+        {"round": 1, "model": str(tmp_path / "loop_r1"), "eval": {"qa_f1": 0.9}, "accepted": False},
+        {"round": 2, "model": str(good), "eval": {"judge_overall": 7.5}, "accepted": True},
+    ]
+    path = tmp_path / "loop_history.json"
+    path.write_text(json.dumps(hist))
+    history, current, score = _resume_state(cfg, path)
+    assert current == str(good) and score == 7.5 and history[-1]["round"] == 2
+    assert _resume_state(cfg, tmp_path / "missing.json") is None

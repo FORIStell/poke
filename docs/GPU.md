@@ -63,3 +63,13 @@ Install Claude Code on the machine (`npm i -g @anthropic-ai/claude-code`) and ru
 - **Stop the machine when you are not training.** The disk is kept on RunPod and Vast "stopped" pods, so the run resumes later.
 - With the budget config on 2× 48 GB cards (~$1.2–1.5/h including disk), expect roughly 1.5–3 days, about **$45–110**. This is an estimate; it depends on how fast the exams get passed.
 - `STOP_WHEN_DONE=1` stops the instance automatically at the end. Billing for the GPU stops; only the small disk fee remains until you delete the instance.
+
+## If the credit runs out (or the machine stops)
+
+Vast **stops** the instance when your balance hits $0. The disk and all progress are kept, but the storage fee keeps running, and Vast deletes the instance if the balance stays negative.
+1. Add credit, then press **▶ Start** on the instance. If the GPUs were taken by someone else in the meantime, you may have to wait until they are free.
+2. Open the Jupyter Terminal and run:
+   ```bash
+   cd /workspace/poke && git pull && STOP_WHEN_DONE=1 bash scripts/gpu_bootstrap.sh
+   ```
+3. Finished stages are skipped. The interrupted training stage continues from its last checkpoint, saved every ~100 steps. The improvement loop continues from its best model, and the exam ladder keeps its progress.
