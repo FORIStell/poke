@@ -1,5 +1,6 @@
 """Run Gintaras on your own PC and open it in the browser.
 
+    Double-click this file, or run:
     python run_gintaras.py                      # small model (EuroLLM-1.7B), works on CPU or a 4 GB GPU
     python run_gintaras.py --model PATH_OR_ID   # e.g. a trained checkpoint folder
     python run_gintaras.py --lan                # also reachable from your phone on the same Wi-Fi
@@ -64,4 +65,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:  # keep the window open when started by double-click
+        print(f"\nError: {e}")
+        input("Press Enter to close...")
