@@ -132,7 +132,10 @@ def run_exams(args) -> None:
     out.write_text(json.dumps(state["history"], ensure_ascii=False, indent=2), encoding="utf-8")
     print("\nResults:")
     for h in state["history"]:
-        print(f"  {h['exam_id']:28s} {h['grade']:.0f}/10  ({h['percent']}%){'  approx.' if h['approximate'] else ''}")
+        if h.get("skipped"):
+            print(f"  {h['exam_id']:28s} not graded (essay needs a judge model)")
+        else:
+            print(f"  {h['exam_id']:28s} {h['grade']:.0f}/10  ({h['percent']}%){'  approx.' if h['approximate'] else ''}")
     print(f"\nSaved to {out} - send this file to Claude.")
     input("Press Enter to close...")
 

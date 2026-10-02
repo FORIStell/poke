@@ -107,7 +107,7 @@ def make_report(cfg: Config, out: Path | None = None) -> Path:
     # 3) exam grades
     ax = axes[2]
     _style(ax, "Exam grades (pass = 8/10)")
-    hist = load_ladder(cfg)["history"]
+    hist = [h for h in load_ladder(cfg)["history"] if not h.get("skipped")]
     if hist:
         labels = [h["exam_id"].replace("-skaitymas", "\nreading").replace("-testas", "\ntest") for h in hist[-8:]]
         grades = [h["grade"] for h in hist[-8:]]

@@ -299,9 +299,15 @@ def take_exam(cfg: Config, exam: dict, model_path: str, hf=None, judge=None) -> 
                 judge_points[i] = (pts, str(obj.get("reason", ""))[:300])
             except (TypeError, KeyError, ValueError):
                 pass
-    total = 0.0
+    total, graded_max = 0.0, 0.0
     for i, (q, a) in enumerate(zip(questions, answers)):
-        if q["type"] in ("open", "essay"):
+        if q["type"] == "essay" and i not in judge_points:
+            # Without a judge an essay cannot be graded fairly: leave it out of the score.
+            approximate = True
+            details.append({"id": q["id"], "type": "essay", "points": None, "max": q["points"],
+                            "why": "not graded (no judge)", "answer": a})
+            continue
+        if q["type"] == "open":
             if i in judge_points:
                 pts, why = judge_points[i]
             else:
@@ -309,9 +315,14 @@ def take_exam(cfg: Config, exam: dict, model_path: str, hf=None, judge=None) -> 
         else:
             pts, why = grade_objective(q, a)
         total += pts
+        graded_max += float(q["points"])
         details.append({"id": q["id"], "type": q["type"], "points": pts, "max": q["points"], "why": why, "answer": a})
-    grade = to_grade(exam, total)
-    return ExamResult(exam["id"], exam["level"], int(exam.get("year", 0)), round(total, 2), max_points(exam),
+    full = max_points(exam)
+    if graded_max == 0:  # e.g. an essay-only writing exam without a judge
+        return ExamResult(exam["id"], exam["level"], int(exam.get("year", 0)), 0.0, 0.0, 0.0, False, True, details)
+    # scale to the parts that could be graded, so skipped essays don't count as zero
+    grade = to_grade(exam, total * full / graded_max) if graded_max < full else to_grade(exam, total)
+    return ExamResult(exam["id"], exam["level"], int(exam.get("year", 0)), round(total, 2), graded_max,
                       grade, grade >= cfg.exam.pass_grade, approximate, details)
 
 
@@ -371,6 +382,11 @@ def run_ladder(cfg: Config, model_path: str, max_exams: int = 3, judge=None) -> 
             break
         res = take_exam(cfg, exam, model_path, hf, judge)
         sat += 1
+        if res.max_points == 0:
+            log.info("Exam %s could not be graded without a judge (essay only); skipped", res.exam_id)
+            state["history"].append({**res.summary(), "model": model_path, "skipped": True})
+            save_ladder(cfg, state)
+            continue
         state["streak"] = state["streak"] + 1 if res.passed else 0
         entry = {**res.summary(), "model": model_path, "streak_after": state["streak"]}
         state["history"].append(entry)
