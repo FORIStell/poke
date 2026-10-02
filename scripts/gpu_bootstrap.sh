@@ -46,7 +46,8 @@ run exams-convert                                   # skips exams already conver
 have data/contexts.jsonl            || run prepare
 have data/selfsup_sft.jsonl         || run selfsup
 have data/synth_sft.jsonl           || run synth
-have checkpoints/cpt/config.json    || run cpt
+# SKIP_CPT=1 skips the optional pretraining refresh (saves GPU hours on a tight budget)
+[ "${SKIP_CPT:-0}" = "1" ] || have checkpoints/cpt/config.json || run cpt
 have checkpoints/sft/config.json    || run sft
 have checkpoints/dpo/config.json    || run dpo || echo "no DPO pairs yet; the loop will create them"
 run improve           # loops: train -> exams -> train ... until the ladder is done
