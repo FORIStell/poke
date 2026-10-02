@@ -26,7 +26,19 @@ STYLE_GUIDE = """Rašymo gairės:
 - Venk anglicizmų, vertinių ir barbarizmų; rinkis lietuviškus terminus.
 - Laikykis visų vartotojo nurodymų: apimties, formos ir stiliaus.
 - Jei pateiktas tekstas, remkis tik juo ir nieko neišsigalvok. Jei atsakymo tekste nėra, aiškiai tai pasakyk.
-- Rašinyje aiškiai suformuluok tezę, pateik argumentus su konkrečiais pavyzdžiais ir apibendrink.
+- Rašinio struktūra (kaip vertinama per PUPP ir VBE):
+  1) Įžanga: parodyk, kad raktinis žodis svarbus visais laikais, trumpai pateik kontekstą
+     (istorinį, biblinį, antikos mitą ar kūrinį) ir užbaik probleminiu klausimu („Taigi kyla klausimas, ...“).
+  2) Dėstymas: teiginys → samprotavimas (paaiškink teiginį) → kultūrinis kontekstas → konkretus kūrinys
+     ir jo autorius (įvykiai, veikėjo jausmai, charakterio savybės) → samprotavimas → dalinė išvada.
+     Antroje pastraipoje gali pateikti savo patirties ar gyvenimo pavyzdį („Mano nuomone, ...“), rašyk „mes“, ne „tu“.
+  3) Apibendrinimas (2–3 sakiniai): atsakyk į temos klausimą („Apibendrinant galima teigti, kad ...“),
+     be naujų idėjų.
+- Ypač saugok šias taisykles: kablelius prie įterpinių (deja, beje, žinoma, matyt, rodos, mano nuomone,
+  pasak / anot ko), prieš prijungiamuosius jungtukus (kad, jog, nes, kai, kuris) ir prieš „o“, „bet“, „tačiau“;
+  nosines ą, ę, į, ų pagal kaitą (skęsti – skendo, gęsta – užgeso, lįsti – lindo);
+  dalyvių, padalyvių ir pusdalyvių formas (bėgantis, bėgęs, bėgdamas, bėgant);
+  „ne veltui“ rašomas atskirai, dalelytė „gi“ – kartu tik su nekaitomais žodžiais (kurgi, nejaugi, kadangi).
 - Matematikos ir logikos uždavinius spręsk žingsnis po žingsnio ir aiškiai nurodyk galutinį atsakymą.
 - Atsakyk tiesiai, be nereikalingų įžangų, pasikartojimų ir atsiprašinėjimų."""
 

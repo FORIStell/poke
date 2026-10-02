@@ -166,8 +166,31 @@ def sft_rows(cfg: Config) -> list[dict]:
             n0 = len(rows)
             rows.extend(to_prompt_completion(r["messages"], cfg.system_prompt) for r in read_jsonl(path))
             log.info("SFT data: %d rows from %s", len(rows) - n0, name)
+    human = human_essay_rows()
+    if human:
+        rows.extend(to_prompt_completion(m, cfg.system_prompt) for m in human * HUMAN_REPEAT)
+        log.info("SFT data: %d human-written essays (x%d)", len(human), HUMAN_REPEAT)
     random.Random(cfg.seed).shuffle(rows)
     return rows
+
+
+HUMAN_REPEAT = 3  # human-written gold data is rare and valuable: show it several times
+
+
+def human_essay_rows() -> list[list[dict]]:
+    """Human-written essays from data/human/essays.jsonl as (prompt, essay) conversations."""
+    from gintaras.evaluate import resolve
+
+    path = resolve("data/human/essays.jsonl")
+    if not path.exists():
+        return []
+    out = []
+    for i, r in enumerate(read_jsonl(path)):
+        prompt = (f"Parašyk argumentuotą rašinį tema „{r['topic'].rstrip('?')}{'?' if r['topic'].endswith('?') else ''}“. "
+                  "Rašinyje turi būti įžanga, dėstymas su argumentais ir pavyzdžiais iš literatūros bei gyvenimo "
+                  "ir apibendrinimas.")
+        out.append([{"role": "user", "content": prompt}, {"role": "assistant", "content": r["text"]}])
+    return out
 
 
 def dpo_rows(cfg: Config, files: tuple[str, ...] = ("synth_dpo.jsonl",)) -> list[dict]:

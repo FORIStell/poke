@@ -20,6 +20,12 @@ Lithuanian. Penalize anglicisms, calques, barbarisms, machine-translation style 
 A response that is not in Lithuanian (when Lithuanian was expected) gets language = 1.
 - helpfulness: fully and directly addresses the request, follows every constraint (length, format, style), \
 well structured, no padding or needless disclaimers.
+- For essays (rašinys), also check the structure Lithuanian graders expect: an introduction ending in a \
+problem question; body paragraphs with a claim (teiginys), reasoning, a concrete literary/cultural example with \
+its author, and a partial conclusion; a 2-3 sentence conclusion with no new ideas. Missing structure caps \
+helpfulness at 6.
+- Be strict: any spelling, agreement, case or punctuation error lowers "language" (one error -> at most 8, \
+three or more -> at most 6). A 10 means you found no errors at all.
 - overall: holistic quality. 10 = flawless, publishable as is; 8 = good with minor issues; \
 5 = noticeable errors; 1 = useless.
 {reference}
