@@ -31,6 +31,7 @@ ls data/exams/nmpp8/*.json >/dev/null 2>&1 || { run exams-fetch; run exams-conve
 [ -f $OUT/data/contexts.jsonl ] || run prepare
 [ -f $OUT/data/selfsup_sft.jsonl ] || run selfsup
 [ -f $OUT/data/synth_sft.jsonl ] || zcat data/distilled/synth_sft.*.jsonl.gz > $OUT/data/synth_sft.jsonl
+run calibrate          # judge vs. teacher grades on the human essays
 run sft
 run eval --model $OUT/checkpoints/sft_adapter
 run exam --model $OUT/checkpoints/sft_adapter --exams 3

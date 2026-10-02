@@ -123,6 +123,25 @@ def cmd_exam(cfg: Config, args) -> None:
                      indent=2, ensure_ascii=False))
 
 
+def cmd_calibrate(cfg: Config, args) -> None:
+    """Grade the human essays (teacher grade 8-10) with the judge: a fair judge gives them ~8-10."""
+    from gintaras.backends import make_backend
+    from gintaras.judge import judge_many
+    from gintaras.train import human_essay_rows
+
+    if cfg.judge is None:
+        raise SystemExit("calibrate needs a judge in the config")
+    rows = human_essay_rows()
+    scores = judge_many(make_backend(cfg.judge), [(r[:1], r[1]["content"], None) for r in rows])
+    out = []
+    for r, s in zip(rows, scores):
+        topic = r[0]["content"].split("„")[1].split("“")[0]
+        out.append({"essay": topic, "teacher_grade": "8-10", "judge": s.to_dict() if s else None})
+        print(f"{topic[:45]:45s} judge overall: {s.overall if s else 'n/a'}  language: {s.language if s else 'n/a'}")
+    (cfg.out / "judge_calibration.json").parent.mkdir(parents=True, exist_ok=True)
+    (cfg.out / "judge_calibration.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def cmd_report(cfg: Config, args) -> None:
     from gintaras.report import make_report
 
@@ -215,7 +234,7 @@ def cmd_essay(cfg: Config, args) -> None:
 COMMANDS = {
     "prepare": cmd_prepare, "selfsup": cmd_selfsup, "synth": cmd_synth, "cpt": cmd_cpt, "sft": cmd_sft, "dpo": cmd_dpo,
     "improve": cmd_improve, "eval": cmd_eval, "all": cmd_all, "chat": cmd_chat, "ask": cmd_ask,
-    "essay": cmd_essay, "exams-fetch": cmd_exams_fetch, "exams-convert": cmd_exams_convert, "exam": cmd_exam, "serve": cmd_serve, "report": cmd_report,
+    "essay": cmd_essay, "exams-fetch": cmd_exams_fetch, "exams-convert": cmd_exams_convert, "exam": cmd_exam, "serve": cmd_serve, "report": cmd_report, "calibrate": cmd_calibrate,
 }
 
 
