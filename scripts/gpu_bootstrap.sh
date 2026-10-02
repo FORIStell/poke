@@ -13,16 +13,27 @@ mkdir -p runs/logs
 apt-get update -qq && apt-get install -y -qq poppler-utils tmux >/dev/null || true
 pip install -q -e ".[gpu,dev,web]" vllm
 
+# Smaller cards (40 GB, e.g. A100 40GB): smaller training batches, tighter teacher memory.
+GPU_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -1)
+SETS=()
+TEACHER_UTIL=0.92
+if [ "${GPU_MB:-0}" -lt 46000 ]; then
+  echo "GPU has ${GPU_MB} MB: using 40 GB settings"
+  SETS=(--set cpt.batch_size=2 --set cpt.grad_accum=16 --set sft.batch_size=2 --set sft.grad_accum=16
+        --set dpo.batch_size=1 --set dpo.grad_accum=32 --set eval.batch_size=8)
+  TEACHER_UTIL=0.95
+fi
+
 if ! curl -sf localhost:8000/v1/models >/dev/null; then
   CUDA_VISIBLE_DEVICES=0 nohup vllm serve Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
-    --max-model-len 32768 --gpu-memory-utilization 0.92 --port 8000 > runs/logs/vllm.log 2>&1 &
+    --max-model-len 32768 --gpu-memory-utilization $TEACHER_UTIL --port 8000 > runs/logs/vllm.log 2>&1 &
   echo "waiting for the teacher server..."
   until curl -sf localhost:8000/v1/models >/dev/null; do sleep 10; done
 fi
 
 export CUDA_VISIBLE_DEVICES=1
 OUT=$(python -c "from gintaras.config import load_config; print(load_config('$C').output_dir)")
-run() { echo "== $*"; python -m gintaras "$@" -c "$C" 2>&1 | tee -a runs/logs/pipeline.log; }
+run() { echo "== $*"; python -m gintaras "$@" -c "$C" "${SETS[@]}" 2>&1 | tee -a runs/logs/pipeline.log; }
 have() { [ -e "$OUT/$1" ]; }   # skip stages that already finished
 
 run exams-fetch
