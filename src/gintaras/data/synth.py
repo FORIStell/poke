@@ -245,8 +245,8 @@ def synthesize_selfsup(cfg: Config, n: int | None = None) -> dict:
             rows.append({"id": f"selfsup-{i}", "task": task, "teacher": "reference",
                          "messages": [{"role": "user", "content": d.user},
                                       {"role": "assistant", "content": d.reference}]})
-    rows += unanswerable_rows(cfg, contexts, rng, k=len(rows) // 10)
-    rows += answer_removed_rows(cfg, rng, k=len(rows) // 6)
+    rows += unanswerable_rows(cfg, contexts, rng, k=len(rows) // 30)
+    rows += answer_removed_rows(cfg, rng, k=len(rows) // 10)
     path = cfg.data_path("selfsup_sft.jsonl")
     path.unlink(missing_ok=True)
     stats = {"selfsup": append_jsonl(path, rows)}
