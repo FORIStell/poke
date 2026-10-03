@@ -92,6 +92,9 @@ def bits_per_char(model, tok, docs: list[str], max_len: int = 1024) -> float:
 # ---------------------------------------------------------------------------
 
 
+# fixed, so every round is tested on the same items (cfg.seed changes per training round)
+EVAL_SEED = 42
+
 def qa_items(cfg: Config) -> list[dict]:
     held_out = cfg.data_path("instructions_eval.jsonl")
     rows = read_jsonl(held_out) if held_out.exists() else []
@@ -100,7 +103,7 @@ def qa_items(cfg: Config) -> list[dict]:
         for r in rows
         if r.get("task") == "context_qa"
     ]
-    random.Random(cfg.seed).shuffle(items)
+    random.Random(EVAL_SEED).shuffle(items)
     items = items[: cfg.eval.num_qa]
     gold = resolve(GOLD_QA)
     if gold.exists():
@@ -116,7 +119,7 @@ def diacritic_items(cfg: Config) -> list[dict]:
     path = cfg.data_path("corpus_eval.jsonl")
     if not path.exists():
         return []
-    rng = random.Random(cfg.seed)
+    rng = random.Random(EVAL_SEED)
     items = []
     for r in read_jsonl(path):
         sents = [s for s in _sentences(r["text"]) if 40 <= len(s) <= 300 and strip_diacritics(s) != s]
