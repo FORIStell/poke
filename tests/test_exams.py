@@ -106,3 +106,11 @@ def test_engine_falls_back_to_hf_without_gpu():
 
     cfg = load_config(ROOT / "configs/smoke.yaml")
     assert engine(cfg) == "hf"
+
+
+def test_fill_text_without_error_table_uses_default():
+    from gintaras.exams import grade_objective
+
+    q = {"type": "fill_text", "points": 3, "reference": "Vilnius yra Lietuvos sostinė"}
+    assert grade_objective(q, "Vilnius yra Lietuvos sostinė")[0] == 3
+    assert grade_objective(q, "Vilnius yra Lietuvos sostine")[0] == 2

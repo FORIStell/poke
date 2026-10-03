@@ -110,6 +110,11 @@ def table_points(errors: int, table: list[float]) -> float:
     return table[min(errors, len(table) - 1)]
 
 
+def _error_table(q: dict) -> list[float]:
+    """The official table if the conversion found one, else -1 point per error."""
+    return q.get("error_table") or [max(0.0, q["points"] - i) for i in range(int(q["points"]) + 1)]
+
+
 def word_errors(answer: str, reference: str) -> int:
     """Reference words the answer does not reproduce exactly (spelling counts,
     punctuation and case don't)."""
@@ -184,10 +189,10 @@ def grade_objective(q: dict, answer: str) -> tuple[float, str]:
         return correct * each, f"{correct}/{len(q['answers'])} forms"
     if t == "fill_text":
         e = word_errors(answer, q["reference"])
-        return table_points(e, q["error_table"]), f"{e} spelling errors"
+        return table_points(e, _error_table(q)), f"{e} spelling errors"
     if t == "punctuation":
         e = punctuation_errors(answer, q["reference"])
-        return table_points(e, q["error_table"]), f"{e} punctuation errors"
+        return table_points(e, _error_table(q)), f"{e} punctuation errors"
     raise ValueError(f"not an objective question type: {t}")
 
 
