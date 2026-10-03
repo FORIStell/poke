@@ -373,20 +373,23 @@ def run_ladder(cfg: Config, model_path: str, max_exams: int = 3, judge=None) -> 
 
         judge = make_backend(cfg.judge)
     hf = load_for_inference(model_path, cfg.model.bf16) if engine(cfg) == "hf" else None
-    sat = 0
+    sat = tries = 0  # skipped (ungradable) exams don't count towards max_exams
     while sat < max_exams and not state["completed"]:
         level = cfg.exam.levels[state["level_index"]]
         exam = next_exam(state, all_exams.get(level, []), model_path)
         if exam is None:
             log.warning("No exams available for level %s (put them in %s)", level, cfg.exam.exams_dir)
             break
+        tries += 1
+        if tries > max_exams + len(all_exams.get(level, [])):
+            break
         res = take_exam(cfg, exam, model_path, hf, judge)
-        sat += 1
         if res.max_points == 0:
             log.info("Exam %s could not be graded without a judge (essay only); skipped", res.exam_id)
             state["history"].append({**res.summary(), "model": model_path, "skipped": True})
             save_ladder(cfg, state)
             continue
+        sat += 1
         state["streak"] = state["streak"] + 1 if res.passed else 0
         entry = {**res.summary(), "model": model_path, "streak_after": state["streak"]}
         state["history"].append(entry)
