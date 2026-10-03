@@ -170,3 +170,19 @@ def test_loop_resumes_from_best_accepted_round(cfg, tmp_path):
     history, current, score = _resume_state(cfg, path)
     assert current == str(good) and score == 7.5 and history[-1]["round"] == 2
     assert _resume_state(cfg, tmp_path / "missing.json") is None
+
+
+def test_unanswerable_rows_pair_questions_with_unrelated_text(cfg):
+    import random
+
+    from gintaras.data.synth import unanswerable_rows
+    from gintaras.utils import append_jsonl
+
+    append_jsonl(cfg.data_path("instructions.jsonl"), [
+        {"task": "qa", "messages": [{"role": "user", "content": "Kada įkurtas Vilniaus universitetas?"},
+                                    {"role": "assistant", "content": "1579 metais."}]}])
+    contexts = ["Vilniaus universitetas – seniausias Lietuvos universitetas.", "Nemunas – ilgiausia Lietuvos upė."]
+    rows = unanswerable_rows(cfg, contexts, random.Random(0), k=20)
+    assert rows and all(r["messages"][1]["content"] == UNANSWERABLE for r in rows)
+    assert all("Nemunas" in r["messages"][0]["content"] for r in rows)  # the related passage is never used
+    assert is_refusal(UNANSWERABLE)

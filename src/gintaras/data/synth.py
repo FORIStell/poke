@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from gintaras.backends import Backend, make_backend, parse_json_object
 from gintaras.config import Config
-from gintaras.data.tasks import TASKS, UNANSWERABLE, Draft, sample_task
+from gintaras.data.tasks import TASKS, UNANSWERABLE, Draft, context_qa_prompt, sample_task
 from gintaras.judge import Score, judge_many
 from gintaras.utils import append_jsonl, read_jsonl
 
@@ -243,8 +243,29 @@ def synthesize_selfsup(cfg: Config, n: int | None = None) -> dict:
             rows.append({"id": f"selfsup-{i}", "task": task, "teacher": "reference",
                          "messages": [{"role": "user", "content": d.user},
                                       {"role": "assistant", "content": d.reference}]})
+    rows += unanswerable_rows(cfg, contexts, rng, k=len(rows) // 5)
     path = cfg.data_path("selfsup_sft.jsonl")
     path.unlink(missing_ok=True)
     stats = {"selfsup": append_jsonl(path, rows)}
     log.info("Self-supervised material: %s", stats)
     return stats
+
+
+def unanswerable_rows(cfg: Config, contexts: list[str], rng: random.Random, k: int) -> list[dict]:
+    """Teacher-free "not in the text" examples: a real question (from the instruction
+    data) paired with an unrelated passage, so the gold answer is UNANSWERABLE."""
+    path = cfg.data_path("instructions.jsonl")
+    questions = [r["messages"][0]["content"] for r in read_jsonl(path) if r.get("task") == "qa"] if path.exists() else []
+    questions = [q for q in questions if len(q) <= 300 and q.rstrip().endswith("?")]
+    if not questions or not contexts:
+        return []
+    rows = []
+    for i in range(k):
+        q, ctx = rng.choice(questions), rng.choice(contexts)
+        keywords = {w.lower().strip("?,.") for w in q.split() if len(w) > 5}
+        if any(w in ctx.lower() for w in keywords):  # might be answerable after all
+            continue
+        rows.append({"id": f"selfsup-unans-{i}", "task": "context_qa_unanswerable", "teacher": "reference",
+                     "messages": [{"role": "user", "content": context_qa_prompt(ctx, q)},
+                                  {"role": "assistant", "content": UNANSWERABLE}]})
+    return rows
