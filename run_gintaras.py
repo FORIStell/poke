@@ -121,6 +121,10 @@ def run_exams(args) -> None:
     from gintaras.utils import setup_logging
 
     setup_logging()
+    if sys.platform == "win32":  # keep Windows awake while exams run (sleep freezes them)
+        import ctypes
+
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)  # ES_CONTINUOUS | ES_SYSTEM_REQUIRED
     cfg = load_config(ROOT / "configs/gintaras-1.7b-cpu.yaml", {
         "output_dir": str(ROOT / "runs" / "pc"), "generation_engine": "hf",
         "exam.levels": [args.level], "exam.strength": "low", "exam.max_new_tokens": 200,
