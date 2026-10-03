@@ -12,10 +12,12 @@ from __future__ import annotations
 import logging
 import random
 from dataclasses import dataclass
+from pathlib import Path
 
 from gintaras.backends import Backend, make_backend, parse_json_object
 from gintaras.config import Config
-from gintaras.data.tasks import TASKS, UNANSWERABLE, Draft, context_qa_prompt, sample_task
+from gintaras.data.tasks import TASKS, UNANSWERABLE, Draft, _sentences, context_qa_prompt, sample_task
+from gintaras.lt import answer_tokens
 from gintaras.judge import Score, judge_many
 from gintaras.utils import append_jsonl, read_jsonl
 
@@ -243,7 +245,8 @@ def synthesize_selfsup(cfg: Config, n: int | None = None) -> dict:
             rows.append({"id": f"selfsup-{i}", "task": task, "teacher": "reference",
                          "messages": [{"role": "user", "content": d.user},
                                       {"role": "assistant", "content": d.reference}]})
-    rows += unanswerable_rows(cfg, contexts, rng, k=len(rows) // 5)
+    rows += unanswerable_rows(cfg, contexts, rng, k=len(rows) // 10)
+    rows += answer_removed_rows(cfg, rng, k=len(rows) // 6)
     path = cfg.data_path("selfsup_sft.jsonl")
     path.unlink(missing_ok=True)
     stats = {"selfsup": append_jsonl(path, rows)}
@@ -268,4 +271,46 @@ def unanswerable_rows(cfg: Config, contexts: list[str], rng: random.Random, k: i
         rows.append({"id": f"selfsup-unans-{i}", "task": "context_qa_unanswerable", "teacher": "reference",
                      "messages": [{"role": "user", "content": context_qa_prompt(ctx, q)},
                                   {"role": "assistant", "content": UNANSWERABLE}]})
+    return rows
+
+
+def _split_context_qa(prompt: str) -> tuple[str, str] | None:
+    head, sep, question = prompt.rpartition("\n\nKlausimas: ")
+    _, sep2, context = head.partition("Tekstas:\n")
+    return (context, question) if sep and sep2 else None
+
+
+def remove_answer(context: str, question: str, answer: str) -> str | None:
+    """Drop every sentence that carries the answer; None if that guts the passage."""
+    key = {t for t in answer_tokens(answer) if len(t) >= 4 or t.isdigit()} - set(answer_tokens(question))
+    if not key:
+        return None
+    sents = _sentences(context)
+    kept = [x for x in sents if not key & set(answer_tokens(x))]
+    if len(kept) == len(sents) or sum(map(len, kept)) < max(200, len(context) // 2):
+        return None
+    return " ".join(kept)
+
+
+def answer_removed_rows(cfg: Config, rng: random.Random, k: int) -> list[dict]:
+    """Hard, same-topic "not in the text" examples: a real grounded question whose
+    context has had the answer-bearing sentences removed."""
+    sources = [cfg.data_path("instructions.jsonl"), *sorted((Path(__file__).resolve().parents[3] / "data/distilled").glob("synth_sft.*.jsonl.gz"))]
+    pool = []
+    for path in sources:
+        if path.exists():
+            pool += [r for r in read_jsonl(path) if r.get("task") == "context_qa"]
+    rng.shuffle(pool)
+    rows = []
+    for r in pool:
+        if len(rows) >= k:
+            break
+        parts = _split_context_qa(r["messages"][-2]["content"])
+        if parts is None:
+            continue
+        context = remove_answer(*parts, r["messages"][-1]["content"])
+        if context:
+            rows.append({"id": f"selfsup-unans-hard-{len(rows)}", "task": "context_qa_unanswerable", "teacher": "reference",
+                         "messages": [{"role": "user", "content": context_qa_prompt(context, parts[1])},
+                                      {"role": "assistant", "content": UNANSWERABLE}]})
     return rows

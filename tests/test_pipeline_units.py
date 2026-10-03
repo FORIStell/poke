@@ -186,3 +186,14 @@ def test_unanswerable_rows_pair_questions_with_unrelated_text(cfg):
     assert rows and all(r["messages"][1]["content"] == UNANSWERABLE for r in rows)
     assert all("Nemunas" in r["messages"][0]["content"] for r in rows)  # the related passage is never used
     assert is_refusal(UNANSWERABLE)
+
+
+def test_remove_answer_drops_the_answer_sentence():
+    from gintaras.data.synth import remove_answer
+
+    ctx = ("Nida yra kurortinė gyvenvietė Kuršių nerijoje. Joje gyvena apie 1650 gyventojų. "
+           "Nidoje stovi Thomo Manno vasarnamis, kuriame dabar veikia memorialinis muziejus. "
+           "Kopos aplink gyvenvietę yra saugomos, o vasarą čia atvyksta daugybė poilsiautojų iš visos Europos.")
+    out = remove_answer(ctx, "Kiek gyventojų gyvena Nidoje?", "Apie 1650 gyventojų.")
+    assert out and "1650" not in out and "Thomo Manno" in out
+    assert remove_answer(ctx, "Kas tai?", "Visai kas kita") is None  # nothing removed → no example

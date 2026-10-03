@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import json
 import logging
 import random
@@ -34,7 +35,9 @@ def append_jsonl(path: str | Path, rows: Iterable[dict[str, Any]]) -> int:
 
 
 def read_jsonl(path: str | Path) -> Iterator[dict[str, Any]]:
-    with Path(path).open(encoding="utf-8") as f:
+    path = Path(path)
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", encoding="utf-8") as f:
         for line in f:
             if line.strip():
                 yield json.loads(line)
