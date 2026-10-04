@@ -1,7 +1,7 @@
 """Run Gintaras on your own PC and open it in the browser.
 
     Double-click this file, or run:
-    python run_gintaras.py                      # small model (EuroLLM-1.7B), works on CPU or a 4 GB GPU
+    python run_gintaras.py                      # best trained Gintaras (1.7B), works on CPU or a 4 GB GPU
     python run_gintaras.py --model PATH_OR_ID   # e.g. a trained checkpoint folder
     python run_gintaras.py --lan                # also reachable from your phone on the same Wi-Fi
     python run_gintaras.py --exam               # sit the converted exams (needs gintaras-progress.tgz
@@ -20,10 +20,12 @@ import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-NEEDED = {"torch": "torch", "transformers": "transformers", "yaml": "pyyaml", "accelerate": "accelerate"}
+NEEDED = {"torch": "torch", "transformers": "transformers", "yaml": "pyyaml", "accelerate": "accelerate", "peft": "peft"}
 
 
 VENV = ROOT / ".venv"
+# best trained model so far: base EuroLLM-1.7B + the accepted CPU rounds (LoRA adapters, stacked)
+BEST = "+".join(f"models/gintaras-1.7b-{r}" for r in ("r1", "r4", "r5", "r9"))
 
 
 def venv_python() -> Path:
@@ -62,7 +64,7 @@ def lan_ip() -> str:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Host the Gintaras chat page on this PC")
-    p.add_argument("--model", default="utter-project/EuroLLM-1.7B-Instruct", help="model folder or Hugging Face id")
+    p.add_argument("--model", default=None, help="model folder or Hugging Face id (default: best trained Gintaras)")
     p.add_argument("--port", type=int, default=8080)
     p.add_argument("--lan", action="store_true", help="allow other devices on your network to connect")
     p.add_argument("--exam", action="store_true", help="sit the exams instead of starting the chat page")
@@ -70,6 +72,9 @@ def main() -> None:
     args = p.parse_args()
 
     ensure_venv()
+    if args.model is None:
+        have = all((ROOT / m).exists() for m in BEST.split("+"))
+        args.model = "+".join(str(ROOT / m) for m in BEST.split("+")) if have else "utter-project/EuroLLM-1.7B-Instruct"
     if args.exam:
         return run_exams(args)
     ensure_packages()
