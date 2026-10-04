@@ -114,3 +114,11 @@ def test_fill_text_without_error_table_uses_default():
     q = {"type": "fill_text", "points": 3, "reference": "Vilnius yra Lietuvos sostinė"}
     assert grade_objective(q, "Vilnius yra Lietuvos sostinė")[0] == 3
     assert grade_objective(q, "Vilnius yra Lietuvos sostine")[0] == 2
+
+
+def test_objective_question_without_key_is_not_gradable():
+    from gintaras.exams import has_answer_key
+
+    assert not has_answer_key({"type": "choice", "points": 1})
+    assert has_answer_key({"type": "choice", "points": 1, "answer": "B"})
+    assert has_answer_key({"type": "open", "points": 1})

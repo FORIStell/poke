@@ -170,6 +170,14 @@ def parse_numbered(answer: str, n: int) -> list[str]:
     return [found.get(i + 1, "") for i in range(n)]
 
 
+_KEY_FIELD = {"choice": "answer", "forms": "answers", "fill_text": "reference", "punctuation": "reference"}
+
+
+def has_answer_key(q: dict) -> bool:
+    """Objective questions need their key; a conversion can miss it (e.g. a matching table)."""
+    return bool(q.get(_KEY_FIELD.get(q["type"], "type")))
+
+
 def grade_objective(q: dict, answer: str) -> tuple[float, str]:
     t = q["type"]
     if t == "choice":
@@ -317,6 +325,11 @@ def take_exam(cfg: Config, exam: dict, model_path: str, hf=None, judge=None) -> 
                 pts, why = judge_points[i]
             else:
                 pts, why, approximate = approx_points(q, a), "approximate (no judge)", True
+        elif not has_answer_key(q):
+            approximate = True
+            details.append({"id": q["id"], "type": q["type"], "points": None, "max": q["points"],
+                            "why": "not graded (no answer key in the converted exam)", "answer": a})
+            continue
         else:
             pts, why = grade_objective(q, a)
         total += pts
