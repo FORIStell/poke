@@ -197,3 +197,28 @@ def test_remove_answer_drops_the_answer_sentence():
     out = remove_answer(ctx, "Kiek gyventojų gyvena Nidoje?", "Apie 1650 gyventojų.")
     assert out and "1650" not in out and "Thomo Manno" in out
     assert remove_answer(ctx, "Kas tai?", "Visai kas kita") is None  # nothing removed → no example
+
+
+def test_reading_exercises_have_checkable_answers():
+    import random
+
+    from gintaras.data.reading import build_order, build_true_statements, build_word_choice
+
+    ctx = ("Vilnius yra Lietuvos sostinė ir didžiausias šalies miestas. Mieste gyvena daugiau kaip "
+           "pusė milijono žmonių. Senamiestis įtrauktas į pasaulio paveldo sąrašą. Per miestą teka "
+           "Neris ir Vilnelė. Vilniaus universitetas įkurtas šešioliktame amžiuje. Gedimino pilies "
+           "bokštas stovi ant aukštos kalvos. Kiekvieną pavasarį mieste vyksta Kaziuko mugė.")
+    rng = random.Random(0)
+    user, ans = build_word_choice(rng, ctx)
+    assert "______" in user and ans in "abcd" and len(ans) == 1
+    user, ans = build_order(rng, ctx)
+    letters = [a.strip() for a in ans.split(",")]
+    assert sorted(letters) == sorted(set(letters)) and len(letters) >= 3
+    made = build_true_statements(random.Random(3), ctx)
+    assert made is None or all(a.strip() in "abcde" for a in made[1].split(","))
+
+
+def test_own_system_prompt_is_kept():
+    rows = to_prompt_completion([{"role": "system", "content": "EGZAMINAS"}, {"role": "user", "content": "k"},
+                                 {"role": "assistant", "content": "a"}], "numatytasis")
+    assert rows["prompt"][0]["content"] == "EGZAMINAS"

@@ -181,17 +181,18 @@ def _callbacks(stage: TrainStageConfig) -> list:
 def to_prompt_completion(messages: list[dict], system: str) -> dict:
     """[user, assistant, ..., assistant] -> TRL conversational prompt/completion
     (loss is computed on the final assistant turn only)."""
+    own = [m["content"] for m in messages if m["role"] == "system"]  # e.g. exam-format exercises
     msgs = [m for m in messages if m["role"] != "system"]
     assert msgs and msgs[-1]["role"] == "assistant", "conversation must end with an assistant turn"
     return {
-        "prompt": [{"role": "system", "content": system}, *msgs[:-1]],
+        "prompt": [{"role": "system", "content": own[0] if own else system}, *msgs[:-1]],
         "completion": [msgs[-1]],
     }
 
 
 def sft_rows(cfg: Config) -> list[dict]:
     rows = []
-    for name in ("instructions.jsonl", "selfsup_sft.jsonl", "synth_sft.jsonl", "loop_sft.jsonl"):
+    for name in ("instructions.jsonl", "selfsup_sft.jsonl", "reading_sft.jsonl", "synth_sft.jsonl", "loop_sft.jsonl"):
         path = cfg.data_path(name)
         if path.exists():
             n0 = len(rows)

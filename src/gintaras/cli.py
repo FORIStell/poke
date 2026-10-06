@@ -2,13 +2,15 @@
 
     gintaras prepare  -c configs/gintaras-9b.yaml     # data: corpus, instructions, contexts
     gintaras selfsup  -c ...                          # teacher-free exercises (diacritics, error fixing)
+    gintaras reading  -c ...                          # teacher-free exam-format reading exercises
     gintaras synth    -c ...                          # multi-teacher distillation
     gintaras cpt|sft|dpo -c ...                       # training stages
     gintaras improve  -c ...                          # self-improvement loop
     gintaras eval     -c ... [--model PATH]
     gintaras all      -c ...                          # everything, in order
     gintaras exams-fetch|exams-convert -c ...         # download + convert past NŠA exams
-    gintaras exam     -c ... [--model PATH]           # sit the exam ladder (NMPP 8 → PUPP 10 → VBE)
+    gintaras exam     -c ... [--model PATH]           # sit the exam ladder (NMPP 2 → 4 → 6 → 8 → PUPP 10 → VBE)
+    gintaras level-test -c ... --level nmpp2          # sit all exams of one level, save the mean score
     gintaras serve    -c ... [--port 8080]            # front page with chat
     gintaras report   -c ...                          # progress chart PNG
     gintaras chat     -c ... [--model PATH]
@@ -72,6 +74,12 @@ def cmd_selfsup(cfg: Config, args) -> None:
     print(json.dumps(synthesize_selfsup(cfg), indent=2))
 
 
+def cmd_reading(cfg: Config, args) -> None:
+    from gintaras.data.reading import make_reading
+
+    print(json.dumps(make_reading(cfg), indent=2))
+
+
 def cmd_cpt(cfg: Config, args) -> None:
     from gintaras.train import run_cpt
 
@@ -121,6 +129,30 @@ def cmd_exam(cfg: Config, args) -> None:
     state = run_ladder(cfg, args.model or _default_model(cfg), max_exams=args.exams)
     print(json.dumps({k: v for k, v in state.items() if k != "history"} | {"last": state["history"][-args.exams:]},
                      indent=2, ensure_ascii=False))
+
+
+def cmd_level_test(cfg: Config, args) -> None:
+    """Sit every exam of one level (default: the first ladder level) and save the mean score:
+    <output_dir>/level_<level>.json = {"level", "mean_percent", "min_grade", "exams": [...]}"""
+    from gintaras.exams import load_exams, take_exam
+    from gintaras.fastgen import engine
+    from gintaras.generation import load_for_inference
+
+    level = args.level or cfg.exam.levels[0]
+    model = args.model or _default_model(cfg)
+    exams = load_exams(cfg).get(level, [])
+    if not exams:
+        raise SystemExit(f"no converted exams for level {level}")
+    hf = load_for_inference(model, cfg.model.bf16) if engine(cfg) == "hf" else None
+    results = [take_exam(cfg, e, model, hf).summary() for e in exams]
+    graded = [r for r in results if r["max_points"]]
+    out = {"level": level, "model": model,
+           "mean_percent": round(sum(r["percent"] for r in graded) / max(1, len(graded)), 1),
+           "min_grade": min((r["grade"] for r in graded), default=0), "exams": results}
+    path = cfg.out / f"level_{level}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps({k: v for k, v in out.items() if k != "exams"}, ensure_ascii=False))
 
 
 def cmd_calibrate(cfg: Config, args) -> None:
@@ -232,9 +264,9 @@ def cmd_essay(cfg: Config, args) -> None:
 
 
 COMMANDS = {
-    "prepare": cmd_prepare, "selfsup": cmd_selfsup, "synth": cmd_synth, "cpt": cmd_cpt, "sft": cmd_sft, "dpo": cmd_dpo,
+    "prepare": cmd_prepare, "selfsup": cmd_selfsup, "reading": cmd_reading, "synth": cmd_synth, "cpt": cmd_cpt, "sft": cmd_sft, "dpo": cmd_dpo,
     "improve": cmd_improve, "eval": cmd_eval, "all": cmd_all, "chat": cmd_chat, "ask": cmd_ask,
-    "essay": cmd_essay, "exams-fetch": cmd_exams_fetch, "exams-convert": cmd_exams_convert, "exam": cmd_exam, "serve": cmd_serve, "report": cmd_report, "calibrate": cmd_calibrate,
+    "essay": cmd_essay, "exams-fetch": cmd_exams_fetch, "exams-convert": cmd_exams_convert, "exam": cmd_exam, "serve": cmd_serve, "report": cmd_report, "calibrate": cmd_calibrate, "level-test": cmd_level_test,
 }
 
 
@@ -254,6 +286,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--host", default="127.0.0.1", help="serve: bind address")
     p.add_argument("--port", type=int, default=8080, help="serve: port")
     p.add_argument("--exams", type=int, default=3, help="exam: how many exams to sit this time")
+    p.add_argument("--level", help="level-test: exam level, e.g. nmpp2 (default: first ladder level)")
     args = p.parse_args(argv)
 
     setup_logging()
