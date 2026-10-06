@@ -182,12 +182,22 @@ def has_answer_key(q: dict) -> bool:
     return bool(q.get(_KEY_FIELD.get(q["type"], "type")))
 
 
+def _option_by_text(q: dict, answer: str) -> str | None:
+    """No letter given: accept an answer that repeats exactly one option's text."""
+    norm = lambda x: " ".join(_norm_word(w) for w in x.split())  # noqa: E731
+    a = norm(answer)
+    opts = re.findall(r"^\s*([a-h])[).]?\s+(.+)$", q["prompt"], re.M)
+    hits = [letter.upper() for letter, text in opts if norm(text) and (norm(text) in a or (a and a in norm(text)))]
+    return hits[0] if len(hits) == 1 else None
+
+
 def grade_objective(q: dict, answer: str) -> tuple[float, str]:
     t = q["type"]
     if t == "choice":
         m = re.search(r"\b([A-HА-Я])\b", answer.strip().upper())
-        ok = bool(m) and m.group(1) == q["answer"].upper()
-        return (q["points"] if ok else 0.0), f"answer {m.group(1) if m else '?'} vs {q['answer']}"
+        got = m.group(1) if m else _option_by_text(q, answer)
+        ok = got == q["answer"].upper()
+        return (q["points"] if ok else 0.0), f"answer {got or '?'} vs {q['answer']}"
     if t == "multi":  # "mark all correct options": full points only for exactly the right set
         want = set(re.findall(r"[a-h]", q["answer"].lower()))
         got = set(re.findall(r"\b([a-h])\b", answer.lower()))

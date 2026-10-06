@@ -140,3 +140,13 @@ def test_order_needs_exact_sequence():
     q = {"type": "order", "points": 1, "answer": "d, e, a, c, b"}
     assert grade_objective(q, "d, e, a, c, b")[0] == 1
     assert grade_objective(q, "d, e, a, b, c")[0] == 0
+
+
+def test_choice_accepts_option_text_without_letter():
+    from gintaras.exams import grade_objective
+
+    q = {"type": "choice", "points": 1, "answer": "c",
+         "prompt": "Ką pasiūlė?\na Eiti pasivaikščioti.\nb Suvalgyti sausainį.\nc Išgerti arbatos.\nd Gražiai elgtis."}
+    assert grade_objective(q, "Pelėnas pasiūlė Feliksui išgerti arbatos.")[0] == 1
+    assert grade_objective(q, "Suvalgyti sausainį.")[0] == 0
+    assert grade_objective(q, "c")[0] == 1
