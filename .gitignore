@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 .pytest_cache/
 data/exams/raw/
+data/exams/nmpp2/
+data/exams/nmpp4/
+data/exams/nmpp6/
 data/exams/nmpp8/
 data/exams/pupp10/
 data/exams/vbe12/
