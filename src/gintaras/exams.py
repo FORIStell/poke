@@ -92,6 +92,10 @@ def question_prompt(exam: dict, q: dict) -> str:
         parts.append("Perrašyk visą tekstą su pataisymais. Nieko daugiau nerašyk.")
     elif q["type"] == "choice":
         parts.append("Atsakyk tik teisingo atsakymo raide.")
+    elif q["type"] == "order":
+        parts.append("Parašyk raides teisinga eilės tvarka, atskirtas kableliais (pvz.: c, a, b).")
+    elif q["type"] == "multi":
+        parts.append("Parašyk visų teisingų atsakymų raides, atskirtas kableliais (pvz.: a, c).")
     return "\n\n".join(parts)
 
 
@@ -170,7 +174,7 @@ def parse_numbered(answer: str, n: int) -> list[str]:
     return [found.get(i + 1, "") for i in range(n)]
 
 
-_KEY_FIELD = {"choice": "answer", "forms": "answers", "fill_text": "reference", "punctuation": "reference"}
+_KEY_FIELD = {"choice": "answer", "multi": "answer", "order": "answer", "forms": "answers", "fill_text": "reference", "punctuation": "reference"}
 
 
 def has_answer_key(q: dict) -> bool:
@@ -184,6 +188,14 @@ def grade_objective(q: dict, answer: str) -> tuple[float, str]:
         m = re.search(r"\b([A-HА-Я])\b", answer.strip().upper())
         ok = bool(m) and m.group(1) == q["answer"].upper()
         return (q["points"] if ok else 0.0), f"answer {m.group(1) if m else '?'} vs {q['answer']}"
+    if t == "multi":  # "mark all correct options": full points only for exactly the right set
+        want = set(re.findall(r"[a-h]", q["answer"].lower()))
+        got = set(re.findall(r"\b([a-h])\b", answer.lower()))
+        return (q["points"] if got == want else 0.0), f"answer {','.join(sorted(got)) or '?'} vs {','.join(sorted(want))}"
+    if t == "order":  # put items in order: full points only for the exact sequence
+        want = re.findall(r"[a-h]", q["answer"].lower())
+        got = re.findall(r"\b([a-h])\b", answer.lower())[: len(want)]
+        return (q["points"] if got == want else 0.0), f"order {','.join(got) or '?'} vs {','.join(want)}"
     if t == "forms":
         got = parse_numbered(answer, len(q["answers"]))
         each = q.get("points_each", q["points"] / len(q["answers"]))

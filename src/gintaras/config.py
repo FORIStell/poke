@@ -145,7 +145,7 @@ class ExamConfig:
     years) with at least `pass_grade` on a 10-point scale before moving up."""
 
     exams_dir: str = "data/exams"
-    levels: list[str] = field(default_factory=lambda: ["nmpp8", "pupp10", "vbe12"])
+    levels: list[str] = field(default_factory=lambda: ["nmpp2", "nmpp4", "nmpp6", "nmpp8", "pupp10", "vbe12"])
     pass_grade: float = 8.0
     streak: int = 3
     strength: str = "max"

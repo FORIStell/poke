@@ -68,7 +68,7 @@ def test_catalog_lists_all_levels():
     from gintaras.exams import load_catalog
 
     cat = load_catalog(load_config(ROOT / "configs/gintaras-1.7b-cpu.yaml"))
-    assert set(cat) == {"nmpp8", "pupp10", "vbe12"}
+    assert set(cat) == {"nmpp2", "nmpp4", "nmpp6", "nmpp8", "pupp10", "vbe12"}
     assert all(len({e["year"] for e in v}) >= 3 for v in cat.values())  # 3 different years per level
 
 
@@ -122,3 +122,21 @@ def test_objective_question_without_key_is_not_gradable():
     assert not has_answer_key({"type": "choice", "points": 1})
     assert has_answer_key({"type": "choice", "points": 1, "answer": "B"})
     assert has_answer_key({"type": "open", "points": 1})
+
+
+def test_multi_select_needs_exact_set():
+    from gintaras.exams import grade_objective
+
+    q = {"type": "multi", "points": 1, "answer": "a, c, d"}
+    assert grade_objective(q, "a, c, d")[0] == 1
+    assert grade_objective(q, "Teisingi: c, a ir d")[0] == 1
+    assert grade_objective(q, "a, c")[0] == 0
+    assert grade_objective(q, "a, b, c, d")[0] == 0
+
+
+def test_order_needs_exact_sequence():
+    from gintaras.exams import grade_objective
+
+    q = {"type": "order", "points": 1, "answer": "d, e, a, c, b"}
+    assert grade_objective(q, "d, e, a, c, b")[0] == 1
+    assert grade_objective(q, "d, e, a, b, c")[0] == 0
