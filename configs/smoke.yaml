@@ -1,0 +1,65 @@
+# CPU smoke test: runs every stage end-to-end in a few minutes with a tiny
+# random model and the offline `dummy` teacher/judge. It checks the plumbing,
+# not quality — the resulting model is meaningless.
+#   gintaras all -c configs/smoke.yaml
+
+name: smoke
+output_dir: runs/smoke
+seed: 0
+
+model:
+  base: trl-internal-testing/tiny-Qwen2ForCausalLM-2.5
+  load_in_4bit: false
+  bf16: false
+  max_seq_len: 256
+  gradient_checkpointing: false
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.0
+    target_modules: all-linear
+
+data:
+  corpus:
+    - path: tests/fixtures/corpus.jsonl
+  instructions:
+    - path: tests/fixtures/qa.jsonl
+      kind: qa
+    - path: tests/fixtures/context_qa.jsonl
+      kind: context_qa
+      eval_fraction: 0.3
+  min_chars: 100
+
+teachers:
+  - {name: dummy-a, backend: dummy}
+  - {name: dummy-b, backend: dummy}
+judge: {name: dummy-judge, backend: dummy}
+
+synth:
+  num_prompts: 24
+  num_contexts: 50
+  min_judge_score: 7.0
+  dpo_margin: 0.5
+
+cpt: {max_steps: 3, batch_size: 2, grad_accum: 1, packing: true, logging_steps: 1, learning_rate: 1.0e-3}
+sft: {max_steps: 3, batch_size: 2, grad_accum: 1, logging_steps: 1}
+dpo: {max_steps: 3, batch_size: 2, grad_accum: 1, logging_steps: 1}
+
+loop:
+  rounds: 1
+  prompts_per_round: 8
+  student_samples: 1
+  patience: 1
+
+eval:
+  max_new_tokens: 16
+  num_judge_prompts: 4
+  num_qa: 4
+  num_diacritics: 4
+  num_ppl_docs: 4
+  batch_size: 4
+
+exam:
+  strength: low
+  max_new_tokens: 16
+  essay_max_new_tokens: 16

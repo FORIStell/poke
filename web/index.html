@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gintaras</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #fbf7f0; --panel: #ffffff; --ink: #2b2118; --muted: #7a6a58; --line: #eadfce;
+    --amber: #e8901a; --amber-deep: #b85a0b; --amber-soft: #fff1da;
+    --user: #fff4e2; --bot: #f6f2ec; --ok: #2f8a4c; --bad: #b8402b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17120d; --panel: #211a13; --ink: #f3e9dc; --muted: #b3a08a; --line: #3a2e22;
+      --amber: #f2a53a; --amber-deep: #ffbf5e; --amber-soft: #3a2a14; --user: #33261a; --bot: #2a2119;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  header img { width: 56px; height: 56px; filter: drop-shadow(0 4px 10px rgba(184,90,11,.35)); }
+  h1 { margin: 0; font-size: 28px; letter-spacing: .5px; }
+  .tag { color: var(--muted); margin: 2px 0 0; }
+  .badge { margin-left: auto; font-size: 13px; color: var(--muted); border: 1px solid var(--line);
+           border-radius: 999px; padding: 4px 12px; background: var(--panel); white-space: nowrap; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } .badge { display: none; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
+  #log { height: 440px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px; }
+  .msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: var(--user); border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: var(--bot); border-bottom-left-radius: 4px; }
+  .msg .meta { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .empty { margin: auto; text-align: center; color: var(--muted); }
+  .empty button { margin: 4px; }
+  .strength { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+  .strength label { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; cursor: pointer; }
+  .strength input { display: none; }
+  .strength b { display: block; font-size: 14px; }
+  .strength small { color: var(--muted); font-size: 12px; }
+  .strength label:has(input:checked) { border-color: var(--amber); background: var(--amber-soft); }
+  form { display: flex; gap: 8px; }
+  textarea { flex: 1; resize: none; height: 52px; border-radius: 12px; border: 1px solid var(--line);
+             padding: 12px; font: inherit; background: var(--bg); color: var(--ink); }
+  button { border: 0; border-radius: 12px; background: var(--amber); color: #fff; font: inherit;
+           font-weight: 600; padding: 0 18px; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--amber-deep); border: 1px solid var(--line); padding: 6px 10px; font-weight: 500; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .level { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .level:last-child { border-bottom: 0; }
+  .level .name { flex: 1; }
+  .level .name small { display: block; color: var(--muted); font-size: 12px; }
+  .chip { font-size: 12px; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--line); color: var(--muted); }
+  .chip.done { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .chip.now { background: var(--amber); color: #fff; border-color: var(--amber); }
+  .dots { display: flex; gap: 4px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+  .dot.on { background: var(--amber); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .pass { color: var(--ok); font-weight: 600; } .fail { color: var(--bad); font-weight: 600; }
+  .side { display: flex; flex-direction: column; gap: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="icon.svg" alt="">
+    <div>
+      <h1>Gintaras</h1>
+      <p class="tag">Lietuviškas dirbtinis intelektas: atsako į klausimus, rašo rašinius, taiso klaidas.</p>
+    </div>
+    <span class="badge" id="model">modelis kraunamas…</span>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Pokalbis</h2>
+      <div id="log">
+        <div class="empty" id="empty">
+          <p>Paklauskite ko nors lietuviškai.</p>
+          <button class="ghost" data-q="Kas buvo Vytautas Didysis?">Kas buvo Vytautas Didysis?</button>
+          <button class="ghost" data-q="Parašyk trumpą rašinį tema „Ar žmogui reikia praeities?“">Rašinys apie praeitį</button>
+          <button class="ghost" data-q="Atkurk lietuviškas raides: Siandien saule sviecia ir pauksciai gieda.">Atkurk raides</button>
+        </div>
+      </div>
+      <div class="strength" role="radiogroup" aria-label="Stiprumas">
+        <label><input type="radio" name="s" value="low"><b>Greitas</b><small>Mažiausias, greičiausias</small></label>
+        <label><input type="radio" name="s" value="medium" checked><b>Vidutinis</b><small>Subalansuotas</small></label>
+        <label><input type="radio" name="s" value="max"><b>Stipriausias</b><small>Lėčiausias, geriausias</small></label>
+      </div>
+      <form id="f">
+        <textarea id="q" placeholder="Rašykite žinutę…" aria-label="Žinutė"></textarea>
+        <button id="send">Siųsti</button>
+      </form>
+    </section>
+
+    <aside class="side">
+      <section class="card">
+        <h2>Egzaminų kopėčios</h2>
+        <div id="ladder"></div>
+        <p class="tag" style="font-size:12px;margin-top:8px">Kitas lygis atrakinamas išlaikius 3 skirtingų metų egzaminus iš eilės bent 8 balais.</p>
+      </section>
+      <section class="card">
+        <h2>Paskutiniai egzaminai</h2>
+        <table id="exams"><tr><td>Dar nelaikyta</td><td></td></tr></table>
+      </section>
+      <section class="card">
+        <h2>Mokymo eiga</h2>
+        <table id="train"><tr><td>Duomenų dar nėra</td><td></td></tr></table>
+      </section>
+    </aside>
+  </div>
+</div>
+<script>
+const LEVELS = {nmpp8: ["8 klasė", "NMPP"], pupp10: ["10 klasė", "PUPP"], vbe12: ["12 klasė", "VBE"]};
+const history = [];
+const log = document.getElementById("log");
+
+function add(role, text, meta) {
+  document.getElementById("empty")?.remove();
+  const d = document.createElement("div");
+  d.className = "msg " + role;
+  d.textContent = text;
+  if (meta) { const m = document.createElement("span"); m.className = "meta"; m.textContent = meta; d.append(m); }
+  log.append(d); log.scrollTop = log.scrollHeight;
+  return d;
+}
+
+async function send(text) {
+  const strength = document.querySelector("input[name=s]:checked").value;
+  history.push({role: "user", content: text});
+  add("user", text);
+  const pending = add("bot", "Galvoju…");
+  const btn = document.getElementById("send"); btn.disabled = true;
+  try {
+    const r = await fetch("api/chat", {method: "POST", headers: {"Content-Type": "application/json"},
+                                       body: JSON.stringify({messages: history, strength})});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    pending.remove();
+    history.push({role: "assistant", content: j.reply});
+    const names = {low: "Greitas", medium: "Vidutinis", max: "Stipriausias"};
+    add("bot", j.reply, `${names[j.strength]} · ${j.seconds.toFixed(1)} s`);
+  } catch (e) {
+    pending.textContent = "Klaida: " + e.message;
+  } finally { btn.disabled = false; }
+}
+
+document.getElementById("f").addEventListener("submit", e => {
+  e.preventDefault();
+  const q = document.getElementById("q"); const t = q.value.trim();
+  if (t) { q.value = ""; send(t); }
+});
+document.getElementById("q").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); document.getElementById("f").requestSubmit(); }
+});
+document.querySelectorAll("[data-q]").forEach(b => b.addEventListener("click", () => send(b.dataset.q)));
+
+function row(a, b, cls) { return `<tr><td>${a}</td><td class="${cls || ""}">${b}</td></tr>`; }
+
+async function status() {
+  try {
+    const s = await (await fetch("api/status")).json();
+    document.getElementById("model").textContent = s.model_name;
+    const L = s.ladder;
+    document.getElementById("ladder").innerHTML = s.levels.map((lvl, i) => {
+      const [grade, name] = LEVELS[lvl] || [lvl, ""];
+      const done = L.completed || i < L.level_index, now = !L.completed && i === L.level_index;
+      const dots = [0,1,2].map(k => `<span class="dot ${now && k < L.streak ? "on" : done ? "on" : ""}"></span>`).join("");
+      return `<div class="level"><div class="name">${name}<small>${grade}</small></div>
+              <div class="dots">${dots}</div>
+              <span class="chip ${done ? "done" : now ? "now" : ""}">${done ? "išlaikyta" : now ? "dabar" : "užrakinta"}</span></div>`;
+    }).join("");
+    if (L.history.length) {
+      document.getElementById("exams").innerHTML = L.history.slice(-6).reverse().map(h =>
+        row(`${h.exam_id}${h.approximate ? " ≈" : ""}`, `${h.grade.toFixed(0)}/10 (${h.percent}%)`, h.passed ? "pass" : "fail")).join("");
+    }
+    const t = s.training;
+    if (t && Object.keys(t).length) {
+      document.getElementById("train").innerHTML = Object.entries(t).map(([k, v]) => row(k, v)).join("");
+    }
+  } catch (e) { /* server busy; try again later */ }
+}
+status(); setInterval(status, 30000);
+</script>
+</body>
+</html>
