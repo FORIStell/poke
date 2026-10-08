@@ -25,7 +25,7 @@ NEEDED = {"torch": "torch", "transformers": "transformers", "yaml": "pyyaml", "a
 
 VENV = ROOT / ".venv"
 # best trained model so far: base EuroLLM-1.7B + the accepted CPU rounds (LoRA adapters, stacked)
-BEST = "+".join(f"models/gintaras-1.7b-{r}" for r in ("r1", "r4", "r5", "r9", "r12"))
+BEST = "+".join(f"models/gintaras-1.7b-{r}" for r in ("r1", "r4", "r5", "r9", "r12", "r17"))
 
 
 def venv_python() -> Path:
