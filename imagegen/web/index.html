@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>People Image Generator</title>
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e2e0db; --acc:#2f6fed; --bad:#c0392b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141416; --card:#1e1e22; --ink:#ececf0; --muted:#9a9aa3; --line:#2e2e34; --acc:#6c9bff; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:18px 16px 6px; max-width:1200px; margin:auto; }
+  h1 { margin:0; font-size:22px; }
+  header p { margin:4px 0 0; color:var(--muted); }
+  main { max-width:1200px; margin:auto; padding:12px 16px 40px; display:grid; grid-template-columns: 360px 1fr; gap:18px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .seg { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+  .seg button { flex:1; padding:8px 10px; border:1px solid var(--line); background:transparent; color:var(--ink); border-radius:10px; cursor:pointer; font:inherit; }
+  .seg button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
+  label.f { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; text-transform:capitalize; }
+  select, textarea, input[type=number] { width:100%; padding:7px 8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; }
+  textarea { min-height:70px; resize:vertical; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; }
+  .row { display:flex; gap:10px; align-items:center; margin-top:10px; }
+  .row > * { flex:1; }
+  .go { width:100%; margin-top:14px; padding:12px; border:0; border-radius:10px; background:var(--acc); color:#fff; font:600 16px system-ui; cursor:pointer; }
+  .go:disabled { opacity:.6; cursor:wait; }
+  .note { font-size:12px; color:var(--muted); margin-top:8px; }
+  .err { color:var(--bad); margin:8px 0; }
+  #out { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+  #out figure { margin:0; }
+  #out img { width:100%; border-radius:10px; display:block; background:var(--line); }
+  #meta { font-size:12px; color:var(--muted); margin-bottom:10px; word-break:break-word; }
+  .hide { display:none; }
+  .check { display:flex; gap:8px; align-items:center; margin-top:10px; font-size:14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>People Image Generator</h1>
+  <p>Pick options, add your own words if you like, and press Generate.</p>
+</header>
+<main>
+  <section class="card">
+    <div class="seg" id="engine">
+      <button data-v="turbo" class="on">Ready-made (sharp)</button>
+      <button data-v="tiny">Our tiny model (faces)</button>
+    </div>
+    <div class="seg" id="mode">
+      <button data-v="face" class="on">Face</button>
+      <button data-v="body">Full body</button>
+    </div>
+    <div id="opts" class="grid2"></div>
+    <label class="check body-only hide"><input type="checkbox" id="blur"> Blur the face (body only)</label>
+    <label class="f" for="prompt">Extra description (ready-made model only)</label>
+    <textarea id="prompt" placeholder="e.g. red scarf, standing in the rain, golden hour"></textarea>
+    <div class="row">
+      <div><label class="f" for="count">Pictures</label><input type="number" id="count" min="1" max="8" value="2"></div>
+      <div><label class="f" for="seed">Seed (empty = random)</label><input type="number" id="seed"></div>
+    </div>
+    <button class="go" id="go">Generate</button>
+    <div class="note" id="dev"></div>
+    <div class="note">No nudity or sexual content, adults only. Requests like that are refused, and pictures are checked before they are shown.</div>
+  </section>
+  <section>
+    <div id="meta"></div>
+    <div class="err" id="err"></div>
+    <div id="out"></div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let OPT = {}, TINY = [], state = { engine: "turbo", mode: "face" };
+const BODY_ONLY = ["body_type", "pose"];
+
+function seg(id, key) {
+  $(id).querySelectorAll("button").forEach(b => b.onclick = () => {
+    $(id).querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    state[key] = b.dataset.v; refresh();
+  });
+}
+function refresh() {
+  const tiny = state.engine === "tiny";
+  if (tiny && state.mode === "body") { state.mode = "face"; $("#mode").querySelectorAll("button").forEach(x => x.classList.toggle("on", x.dataset.v === "face")); }
+  $("#mode").querySelector('[data-v="body"]').disabled = tiny;
+  document.querySelectorAll("[data-opt]").forEach(el => {
+    const k = el.dataset.opt;
+    const show = (!tiny || TINY.includes(k)) && (state.mode === "body" || !BODY_ONLY.includes(k)) && !(tiny && k === "style");
+    el.classList.toggle("hide", !show);
+  });
+  document.querySelectorAll(".body-only").forEach(el => el.classList.toggle("hide", state.mode !== "body"));
+  $("#prompt").disabled = tiny;
+}
+async function init() {
+  const r = await (await fetch("/api/options")).json();
+  OPT = r.options; TINY = r.tiny_options;
+  const box = $("#opts");
+  for (const [k, vals] of Object.entries(OPT)) {
+    const d = document.createElement("div"); d.dataset.opt = k;
+    d.innerHTML = `<label class="f">${k.replace("_", " ")}</label><select data-k="${k}">${vals.map(v => `<option>${v}</option>`).join("")}</select>`;
+    box.appendChild(d);
+  }
+  $("#dev").textContent = r.device === "cuda" ? "Running on your graphics card." : "No graphics card found: the ready-made model will be slow (about a minute per picture).";
+  if (!r.tiny_available) { const b = $("#engine").querySelector('[data-v="tiny"]'); b.disabled = true; b.title = "Tiny model not downloaded yet"; }
+  seg("#engine", "engine"); seg("#mode", "mode"); refresh();
+}
+$("#go").onclick = async () => {
+  const options = {};
+  document.querySelectorAll("#opts select").forEach(s => { if (!s.closest(".hide")) options[s.dataset.k] = s.value; });
+  const body = { engine: state.engine, mode: state.mode, options, prompt: $("#prompt").value,
+                 count: +$("#count").value || 1, seed: $("#seed").value ? +$("#seed").value : null, blur_face: $("#blur").checked };
+  $("#go").disabled = true; $("#go").textContent = "Generating…"; $("#err").textContent = "";
+  try {
+    const r = await (await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+    if (r.error) { $("#err").textContent = r.error; return; }
+    $("#out").innerHTML = r.images.map(src => `<figure><img src="${src}" alt="generated person"></figure>`).join("");
+    $("#meta").textContent = `${r.seconds}s · seed ${r.seed}` + (r.hidden ? ` · ${r.hidden} picture(s) hidden by the safety check` : "") + ` · ${r.prompt}`;
+  } catch (e) { $("#err").textContent = "Request failed: " + e; }
+  finally { $("#go").disabled = false; $("#go").textContent = "Generate"; }
+};
+init();
+</script>
+</body>
+</html>
