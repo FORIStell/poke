@@ -149,6 +149,12 @@ def tiny_attrs(o: dict) -> dict:
     return a
 
 
+def to_data_url(img: Image.Image) -> str:
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def blur_faces(img: Image.Image) -> Image.Image:
     import cv2
     import numpy as np
@@ -219,13 +225,24 @@ class Engines:
                 from tinyface import ATTRS, decode, sample
 
                 model, scale = self.tiny()
-                a = torch.zeros(count, len(ATTRS))
-                for k, v in tiny_attrs(opts).items():
-                    a[:, ATTRS.index(k)] = v
-                x = decode(sample(model, a, guidance=float(req.get("guidance", 2.5)), seed=seed), scale)
-                x = ((x.clamp(-1, 1) + 1) * 127.5).round().byte().permute(0, 2, 3, 1).numpy()
-                imgs = [Image.fromarray(i).resize((256, 256), Image.LANCZOS) for i in x]
                 prompt = "options: " + ", ".join(f"{k}={'yes' if v > 0 else 'no'}" for k, v in tiny_attrs(opts).items())
+                shown, hidden = [], 0
+                for attempt in range(3):  # draw replacements for pictures the safety check hides
+                    need = count - len(shown)
+                    if need == 0:
+                        break
+                    a = torch.zeros(need, len(ATTRS))
+                    for k, v in tiny_attrs(opts).items():
+                        a[:, ATTRS.index(k)] = v
+                    x = decode(sample(model, a, guidance=float(req.get("guidance", 2.5)), seed=seed + attempt), scale)
+                    x = ((x.clamp(-1, 1) + 1) * 127.5).round().byte().permute(0, 2, 3, 1).numpy()
+                    for im in (Image.fromarray(i).resize((256, 256), Image.LANCZOS) for i in x):
+                        if self.is_nsfw(im):
+                            hidden += 1
+                        else:
+                            shown.append(to_data_url(im))
+                return {"images": shown, "hidden": hidden, "prompt": prompt, "seed": seed,
+                        "seconds": round(time.time() - t0, 1)}
             else:
                 prompt = build_prompt(mode, opts, extra)
                 w, h = (512, 768) if mode == "body" else (512, 512)
@@ -239,9 +256,7 @@ class Engines:
                 if self.is_nsfw(im):
                     hidden += 1
                     continue
-                buf = io.BytesIO()
-                im.save(buf, format="PNG")
-                shown.append("data:image/png;base64," + base64.b64encode(buf.getvalue()).decode())
+                shown.append(to_data_url(im))
         return {"images": shown, "hidden": hidden, "prompt": prompt, "seed": seed,
                 "seconds": round(time.time() - t0, 1)}
 
