@@ -81,14 +81,18 @@ def build_prompt(mode: str, o: dict, extra: str) -> str:
         bits.append(f"{hair} hair")
     if pick("facial_hair"):
         bits.append(pick("facial_hair"))
-    if pick("clothing"):
+    if pick("clothing") == "swimwear":  # spell it out so the model never "forgets" the clothes
+        bits.append({"man": "wearing knee-length board shorts", "woman": "wearing a modest swimsuit"}
+                    .get(who, "wearing swimwear"))
+    elif pick("clothing"):
         bits.append(f"wearing {pick('clothing')}")
     if pick("accessories"):
         bits.append(f"with {pick('accessories')}")
     if mode == "body":
         if pick("body_type"):
             bits.append(f"{pick('body_type')} build")
-        bits.append(pick("pose") or "standing")
+        if pick("pose") or not extra.strip():
+            bits.append(pick("pose") or "standing")
         bits.append("facing the camera, full body shot, head to toe, whole person visible")
     else:
         bits.append("head and shoulders portrait, face in focus")
@@ -196,7 +200,7 @@ class Engines:
 
             self._nsfw = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=-1)
         scores = {r["label"]: r["score"] for r in self._nsfw(img)}
-        return scores.get("nsfw", 0.0) > 0.35
+        return scores.get("nsfw", 0.0) > 0.2
 
     def generate(self, req: dict) -> dict:
         engine = req.get("engine", "turbo")
