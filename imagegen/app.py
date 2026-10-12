@@ -48,6 +48,17 @@ OPTIONS = {
     "pose": ["any", "standing", "walking", "sitting", "arms crossed", "running"],
     "background": ["any", "studio", "plain white", "city street", "park", "beach", "office", "forest", "room"],
     "style": ["photo", "film photo", "painting", "anime", "3D render", "pencil sketch"],
+    "vibe": ["classic", "spicy", "edgy street", "cinematic", "neon / cyberpunk", "vintage", "fantasy"],
+}
+VIBES = {  # mood presets; all stay clothed and non-sexual
+    "classic": "",
+    "spicy": "bold glamour look, confident fierce attitude, striking pose, dramatic studio lighting, "
+             "bold makeup, stylish fashionable outfit, magazine cover shot",
+    "edgy street": "edgy streetwear look, cool attitude, urban grit, harsh flash photo",
+    "cinematic": "cinematic movie still, moody lighting, shallow depth of field, film color grading",
+    "neon / cyberpunk": "neon lights, cyberpunk city at night, futuristic outfit, glowing pink and blue light",
+    "vintage": "vintage 1970s look, retro outfit, warm faded colors",
+    "fantasy": "fantasy character, ornate costume, magical glowing atmosphere",
 }
 TINY_OPTIONS = ["gender", "age", "expression", "hair_color", "facial_hair", "skin_tone", "accessories", "clothing"]
 
@@ -103,7 +114,8 @@ def build_prompt(mode: str, o: dict, extra: str) -> str:
                "film photo": "35mm film photo, natural grain",
                "painting": "oil painting", "anime": "anime illustration", "3D render": "3D render, soft lighting",
                "pencil sketch": "pencil sketch"}.get(style, style)
-    prompt = ", ".join(bits + [quality])
+    vibe = VIBES.get(o.get("vibe") or "classic", "")
+    prompt = ", ".join(bits + ([vibe] if vibe else []) + [quality])
     if extra.strip():
         prompt = f"{extra.strip()}, {prompt}"
     return prompt

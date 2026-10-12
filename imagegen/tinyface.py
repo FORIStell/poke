@@ -157,6 +157,9 @@ def train(args) -> None:
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         for gp in opt.param_groups:
             gp["lr"] = args.lr * min(1.0, (step + 1) / 1000)
+            if args.decay_from is not None and step >= args.decay_from:  # cosine wind-down sharpens the end result
+                frac = (step - args.decay_from) / max(1, args.steps - args.decay_from)
+                gp["lr"] = args.lr * (0.05 + 0.95 * 0.5 * (1 + math.cos(math.pi * frac)))
         opt.step()
         step += 1
         decay = min(0.999, (1 + step) / (10 + step))
@@ -194,6 +197,7 @@ def main() -> None:
     t.add_argument("--steps", type=int, default=60000)
     t.add_argument("--batch", type=int, default=32)
     t.add_argument("--lr", type=float, default=2e-4)
+    t.add_argument("--decay-from", type=int, default=None, help="step where the learning rate starts winding down")
     t.add_argument("--base", type=int, default=128)
     t.add_argument("--threads", type=int, default=4)
     t.add_argument("--save-every", type=int, default=250)

@@ -13,7 +13,8 @@ src, out = sys.argv[1], sys.argv[2]
 torch.set_num_threads(4)
 vae = AutoencoderTiny.from_pretrained("madebyollin/taesd").eval()
 lats, attrs = [], []
-for f in sorted(glob.glob(f"{src}/*.parquet")):
+shards = {f[:-len(".parquet")] for f in glob.glob(f"{src}/*.parquet")} | {f[:-len(".lat.npz")] for f in glob.glob(f"{src}/*.lat.npz")}
+for f in (s + ".parquet" for s in sorted(shards)):
     part = f.replace(".parquet", ".lat.npz")
     try:
         z = np.load(part)
