@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 PY=/root/.venvs/gintaras/bin/python
 while true; do
   S=$($PY -c "import torch;print(torch.load('runs/tiny/last.pt',weights_only=False)['step'])")
-  START=$(( (S / 30000) * 30000 )); [ $START -lt 75000 ] && START=75000
+  START=$(( 75000 + ((S - 75000) / 30000) * 30000 )); [ $START -lt 75000 ] && START=75000
   END=$(( START + 30000 ))
   echo "CYCLE $START -> $END (now $S)"
   $PY -u tinyface.py train --data data --out runs/tiny --steps $END --decay-from $START --lr 5e-5 \
