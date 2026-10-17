@@ -1,0 +1,24 @@
+{"id": "jp-0", "category": "essay", "prompt": "Parašyk argumentuotą rašinį tema „Ar technologijos daro žmones laimingesnius?“ Apimtis – apie 350 žodžių."}
+{"id": "jp-1", "category": "essay", "prompt": "Parašyk samprotaujamąjį rašinį tema „Ką mums šiandien gali pasakyti Kristijono Donelaičio „Metai“?“"}
+{"id": "jp-2", "category": "explain", "prompt": "Paaiškink paprastai, kas yra infliacija ir kaip ji veikia paprasto žmogaus gyvenimą."}
+{"id": "jp-3", "category": "language", "prompt": "Kuo skiriasi dalyvis nuo padalyvio? Pateik po du pavyzdžius."}
+{"id": "jp-4", "category": "formal", "prompt": "Parašyk oficialų el. laišką mokyklos direktoriui, kuriame prašai leisti organizuoti klasės išvyką į Trakus."}
+{"id": "jp-5", "category": "creative", "prompt": "Parašyk trumpą eilėraštį apie pavasarį Vilniuje."}
+{"id": "jp-6", "category": "reasoning", "prompt": "Petras turi 45 eurus. Jis nupirko 3 knygas po 8,50 euro ir vieną kuprinę už 12 eurų. Kiek pinigų jam liko? Spręsk žingsnis po žingsnio."}
+{"id": "jp-7", "category": "history", "prompt": "Išvardyk tris svarbiausius Vytauto Didžiojo valdymo laikotarpio įvykius ir trumpai juos paaiškink."}
+{"id": "jp-8", "category": "advice", "prompt": "Kaip pasiruošti darbo pokalbiui? Pateik praktinių patarimų sąrašą."}
+{"id": "jp-9", "category": "translate", "prompt": "Išversk į lietuvių kalbą: „The early bird catches the worm, but the second mouse gets the cheese.“"}
+{"id": "jp-10", "category": "grammar", "prompt": "Ištaisyk klaidas: „Vakar as nuejau i parduotuve ir nusipirkau duonos pieno ir sviesto.“"}
+{"id": "jp-11", "category": "creative", "prompt": "Parašyk trumpą pasaką vaikams apie ežiuką, kuris bijojo tamsos."}
+{"id": "jp-12", "category": "explain", "prompt": "Kodėl dangus yra mėlynas? Paaiškink dvylikamečiui suprantamai."}
+{"id": "jp-13", "category": "literature", "prompt": "Kokios yra pagrindinės Maironio poezijos temos?"}
+{"id": "jp-14", "category": "advice", "prompt": "Sudaryk savaitės sveikos mitybos planą studentui, turinčiam ribotą biudžetą."}
+{"id": "jp-15", "category": "formal", "prompt": "Parašyk trumpą kalbą, kurią mokinys galėtų pasakyti per Vasario 16-osios minėjimą."}
+{"id": "jp-16", "category": "explain", "prompt": "Paaiškink, kas yra dirbtinis intelektas ir kur jis naudojamas kasdieniame gyvenime."}
+{"id": "jp-17", "category": "culture", "prompt": "Palygink Aukštaitiją ir Žemaitiją: kuo šie regionai skiriasi?"}
+{"id": "jp-18", "category": "advice", "prompt": "Mano draugas nuolat vėluoja į susitikimus. Kaip mandagiai jam apie tai pasakyti?"}
+{"id": "jp-19", "category": "formal", "prompt": "Parašyk produkto aprašymą internetinei parduotuvei: rankų darbo vilnonės kojinės."}
+{"id": "jp-20", "category": "culture", "prompt": "Kas yra Kūčios ir kokios yra pagrindinės jų tradicijos?"}
+{"id": "jp-21", "category": "language", "prompt": "Pateik penkis sinonimus žodžiui „gražus“ ir sudaryk su kiekvienu po sakinį."}
+{"id": "jp-22", "category": "science", "prompt": "Ar Mėnulis turi savo šviesą? Atsakyk trumpai."}
+{"id": "jp-23", "category": "formal", "prompt": "Parašyk motyvacinį laišką savanorystei gyvūnų prieglaudoje."}

@@ -1,0 +1,96 @@
+# Gintaras 9B on FREE Kaggle GPUs (2x Tesla T4 16 GB, 12 h sessions, ~30 h/week).
+# GPU 0: judge (Qwen3-14B AWQ via vLLM). GPU 1: student (EuroLLM-9B, 4-bit QLoRA).
+# Each session trains for at most ~8 h, then evaluates and sits exams; the next
+# session continues from the saved checkpoint. See docs/KAGGLE.md.
+name: gintaras-9b-kaggle
+output_dir: /kaggle/working/gintaras-9b-kaggle
+seed: 42
+generation_engine: hf
+
+model:
+  base: utter-project/EuroLLM-9B-Instruct-2512
+  load_in_4bit: true
+  bf16: true                  # T4 has no bf16 -> fp16 is used automatically
+  max_seq_len: 1024
+  gradient_checkpointing: true
+  merge_after_training: false # keep only the adapter: /kaggle/working is 20 GB
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    target_modules: all-linear
+
+data:
+  corpus:
+    - name: wikimedia/wikipedia
+      config: 20231101.lt
+      text_field: text
+      max_docs: 3000
+  instructions:
+    - name: neurotechnology/lithuanian-qa-v1
+      kind: qa
+      max_docs: 3000
+      eval_fraction: 0.02
+    - name: ArturG9/Lithuanian_Context_QA
+      kind: context_qa
+      eval_fraction: 0.3
+    - name: saillab/alpaca-lithuanian-cleaned
+      kind: alpaca
+      max_docs: 3000
+      eval_fraction: 0.01
+  min_chars: 200
+
+teachers:
+  - name: qwen3-14b
+    backend: openai
+    base_url: http://localhost:8000/v1
+    model: Qwen/Qwen3-14B-AWQ
+    max_tokens: 2048
+    concurrency: 16
+    extra_body: {chat_template_kwargs: {enable_thinking: false}}
+
+judge:
+  name: judge-qwen3-14b
+  backend: openai
+  base_url: http://localhost:8000/v1
+  model: Qwen/Qwen3-14B-AWQ
+  temperature: 0.0
+  max_tokens: 12000
+  concurrency: 16
+  extra_body: {chat_template_kwargs: {enable_thinking: false}}
+
+synth:
+  num_prompts: 3000
+  num_contexts: 3000
+
+cpt:
+  enabled: false
+
+sft:
+  epochs: 1
+  max_steps: 3000             # spread over several sessions
+  learning_rate: 2.0e-4
+  batch_size: 1
+  grad_accum: 16
+  logging_steps: 10
+  save_steps: 50
+  time_limit_hours: 8.0
+
+dpo:
+  enabled: false
+
+loop:
+  rounds: 0
+
+eval:
+  max_new_tokens: 256
+  num_judge_prompts: 12
+  num_qa: 30
+  num_diacritics: 20
+  num_ppl_docs: 20
+  batch_size: 8
+
+exam:
+  strength: low
+  max_new_tokens: 256
+  essay_max_new_tokens: 900
